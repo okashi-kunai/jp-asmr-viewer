@@ -2,43 +2,6 @@
   "use strict";
   console.log("✅ Userscript injected:", window.location.href);
 
-  (function createLoadingOverlay() {
-    const overlay = document.createElement("div");
-    overlay.id = "cf-loading-overlay";
-    overlay.style.cssText = `
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: black;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999999;
-`;
-    overlay.innerHTML = `
-  <svg width="60" height="60" viewBox="0 0 50 50">
-    <circle
-      cx="25" cy="25" r="20"
-      fill="none" stroke="#08f" stroke-width="5"
-      stroke-linecap="round" stroke-dasharray="31.4 31.4"
-      transform="rotate(0 25 25)"
-    >
-      <animateTransform
-        attributeName="transform"
-        type="rotate"
-        from="0 25 25"
-        to="360 25 25"
-        dur="1s"
-        repeatCount="indefinite"
-      />
-    </circle>
-  </svg>
-`;
-    document.body.appendChild(overlay);
-  })();
-
   function waitForCloudflareBypass(callback, maxWait = 1000) {
     const startTime = Date.now();
 
