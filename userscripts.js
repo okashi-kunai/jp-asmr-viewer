@@ -1,42 +1,22 @@
-// ==UserScript==
-// @name         some title
-// @namespace    http://tampermonkey.net/
-// @version      2025-07-03
-// @description  Show title below comic
-// @author       YUBI
-// @match        *://japaneseasmr.com/*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=tampermonkey.net
-// @grant        GM_xmlhttpRequest
-// @run-at      document-start
-// ==/UserScript==
-
 (function () {
   "use strict";
   console.log("✅ Userscript injected:", window.location.href);
-  function waitForCloudflareBypass(callback, maxWait = 1000) {
-    const startTime = Date.now();
 
-    const interval = setInterval(() => {
-      const cfGone =
-        !document.querySelector("#cf-challenge") &&
-        !document.querySelector("iframe[src*='challenge']");
-      const hasCookie = document.cookie.includes("__cf_bm");
-      const timedOut = Date.now() - startTime > maxWait;
-
-      if ((cfGone && hasCookie) || timedOut) {
-        console.log("✅ Proceeding after Cloudflare check or timeout");
-        clearInterval(interval);
-        callback();
-      } else {
-        console.log("⏳ Waiting on Cloudflare...");
-      }
-    }, 500);
-  } // Wait for Cloudflare check
-
-  // Create loading overlay
   (function createLoadingOverlay() {
     const overlay = document.createElement("div");
     overlay.id = "cf-loading-overlay";
+    overlay.style.cssText = `
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: black;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+`;
     overlay.innerHTML = `
   <svg width="60" height="60" viewBox="0 0 50 50">
     <circle
@@ -58,6 +38,26 @@
 `;
     document.body.appendChild(overlay);
   })();
+
+  function waitForCloudflareBypass(callback, maxWait = 1000) {
+    const startTime = Date.now();
+
+    const interval = setInterval(() => {
+      const cfGone =
+        !document.querySelector("#cf-challenge") &&
+        !document.querySelector("iframe[src*='challenge']");
+      const hasCookie = document.cookie.includes("__cf_bm");
+      const timedOut = Date.now() - startTime > maxWait;
+
+      if ((cfGone && hasCookie) || timedOut) {
+        console.log("✅ Proceeding after Cloudflare check or timeout");
+        clearInterval(interval);
+        callback();
+      } else {
+        console.log("⏳ Waiting on Cloudflare...");
+      }
+    }, 500);
+  } // Wait for Cloudflare check
 
   waitForCloudflareBypass(() => {
     const overlay = document.getElementById("cf-loading-overlay");
@@ -469,7 +469,5 @@
       // Code for any other page matched by your @match (if any)
       console.log("Other pages");
     }
-
-    obs.disconnect();
   });
 })();
