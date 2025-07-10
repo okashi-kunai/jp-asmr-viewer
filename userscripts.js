@@ -29,14 +29,21 @@
     const url = window.location.href;
     console.log(url);
 
-    if (url.match(/^https?:\/\/japaneseasmr\.com\/$/)) {
+    const homePageRegex = /^https?:\/\/japaneseasmr\.com\/$/;
+
+    const videoPageRegex = /^https?:\/\/japaneseasmr\.com\/\d+\/?$/;
+
+    const findElement = (elem) => document.querySelector(elem);
+    const createElement = (elem) => document.createElement(elem);
+
+    if (url.match(homePageRegex)) {
       // Code for main page
       console.log("Main page code running");
 
-      const header = document.querySelector("header"); // FIND header element
+      const header = findElement("header"); // FIND header element
 
-      const container = document.createElement("div"); // CREATE container element for grid
-      container.id = "cv-grid-container";
+      const container = createElement("div"); // CREATE container element for grid
+      container.id = "img-grid-container";
       header.appendChild(container); // APPEND container in header
 
       if (container) {
@@ -71,18 +78,18 @@
       } // CREATE banner
 
       (function createGrid() {
-        const grid = document.createElement("div");
-        grid.id = "cv-grid";
+        const grid = createElement("div");
+        grid.id = "img-grid";
         container.appendChild(grid);
       })();
 
       (function hideMain() {
-        const main = document.querySelector("main"); // HIDE main
+        const main = findElement("main"); // HIDE main
         if (main) main.style.display = "none";
       })();
 
       (function () {
-        const grid = document.querySelector("#cv-grid");
+        const grid = findElement("#img-grid");
         if (!grid) return;
 
         let page = 2;
@@ -130,55 +137,7 @@
           }
 
           cards.forEach((card) => {
-            const entryTitle = card.querySelector(".entry-title a");
-            const title = entryTitle ? entryTitle.innerText.trim() : "No title";
-
-            const creatorParagraphs = Array.from(
-              card.querySelectorAll("p")
-            ).filter((p) => p.innerText.startsWith("CV:"));
-            const creators = creatorParagraphs.map((p) =>
-              p.innerText.slice(3).trim()
-            );
-            let creatorText = "Unknown";
-            if (creators.length === 1) {
-              creatorText = creators[0];
-            } else if (creators.length > 1) {
-              creatorText = `${creators[0]} + ${creators.length - 1} others`;
-            }
-
-            const img = card.querySelector(".op-square a img");
-            if (!img) return;
-
-            // Fix lazy-loaded images
-            if (img.hasAttribute("data-src")) {
-              img.src = img.getAttribute("data-src");
-            }
-
-            // Avoid duplicate cards by checking if image is already in container
-            // (Optional: add better duplicate prevention logic if needed)
-
-            const cvCard = document.createElement("div");
-            cvCard.className = "cv-card";
-
-            // Move image element to new card
-            cvCard.appendChild(img);
-
-            const authorEl = document.createElement("div");
-            authorEl.className = "cv-author";
-            authorEl.textContent = creatorText;
-            cvCard.appendChild(authorEl);
-
-            const info = document.createElement("div");
-            info.className = "cv-info";
-
-            const titleEl = document.createElement("div");
-            titleEl.className = "cv-title";
-            titleEl.textContent = title;
-            info.appendChild(titleEl);
-
-            cvCard.appendChild(info);
-
-            grid.appendChild(cvCard);
+            processCard(card, grid);
           });
         }
 
@@ -211,7 +170,7 @@
         });
 
         function loadNextPage(page) {
-          const iframe = document.createElement("iframe");
+          const iframe = createElement("iframe");
           iframe.style.display = "none"; // hide iframe from view
           iframe.src = `https://japaneseasmr.com/page/${page}/`;
 
@@ -241,32 +200,62 @@
       })(); // FETCHES and FORMATS cards
 
       // your main page code here
-    } else if (url.match(/^https?:\/\/japaneseasmr\.com\/36749/)) {
+    } else if (url.match(videoPageRegex)) {
       // Code for other pages
       console.log("Other page code running");
 
-      (function createPlaybackControls() {
-        const playbackControls = document.createElement("div");
-        playbackControls.innerHTML = `
-         <div id="player-controls" style="display: flex; flex-direction: column; align-items: center; font-family: sans-serif; gap: 10px; padding: 10px;">
+      hideMain();
 
-        <div id="player-controls" style="display: flex; gap: 12px; align-items: center; justify-content: center; font-family: sans-serif;">
-  <button id="rewind-60">⏪ -1 min</button>
-  <button id="rewind-10">◀ -10 sec</button>
-  <button id="play-pause">▶️ Play</button>
-  <button id="forward-10">+10 sec ▶</button>
-  <button id="forward-60">+1 min ⏩</button>
-</div>
-<div id="loop-container"></div>
-<div class="slider-wrapper">
-  <input type="range" id="seek-slider" value="0" min="0" max="100" step="0.1">
-</div>
-<div id="player-time">00:00 / 00:00</div>
-</div>`;
+      const header = findElement("header"); // FIND header element
+      const fotorama = document.querySelector(".fotorama");
 
-        const videoDiv = document.querySelector(".plyr");
-        videoDiv.insertAdjacentElement("afterend", playbackControls);
-      })();
+      const fotoramaWrap = document.querySelector(".fotorama__wrap");
+      if (fotoramaWrap) {
+        fotoramaWrap.style.display = "flex";
+        fotoramaWrap.style.flexDirection = "column";
+        fotoramaWrap.style.alignItems = "center";
+      }
+      // header.appendChild(fotorama);
+
+      // const fotoramaImg = document.querySelector("fotorama__img");
+
+      const clone = fotoramaWrap.cloneNode(true); // true = deep clone (includes children)
+
+      const fotoramaImg = clone.querySelector(".fotorama__stage");
+      fotoramaImg.style.position = "relative";
+
+      const clickOverlay = document.createElement("div");
+      clickOverlay.style.position = "absolute";
+      clickOverlay.style.top = 0;
+      clickOverlay.style.left = 0;
+      clickOverlay.style.width = "100%";
+      clickOverlay.style.height = "100%";
+      clickOverlay.style.cursor = "pointer";
+
+      const darkOverlay = document.createElement("div");
+      darkOverlay.style.position = "absolute";
+      darkOverlay.style.top = 0;
+      darkOverlay.style.right = 0;
+      darkOverlay.style.height = "100%";
+      darkOverlay.style.backgroundColor = "rgba(0,0,0,0.8)";
+
+      header.appendChild(clone); // or insert wherever you want
+
+      fotoramaImg.appendChild(darkOverlay);
+      fotoramaImg.appendChild(clickOverlay);
+
+      const arrows = clone.querySelectorAll(".fotorama__arr");
+      arrows.forEach((arrow) => {
+        arrow.style.display = "none";
+      });
+
+      const fullScreenIcon = clone.querySelector(".fotorama__fullscreen-icon");
+      fullScreenIcon.style.display = "none";
+
+      const playbackControls = createPlaybackControls();
+      const videoDiv = document.querySelector(".plyr");
+      videoDiv.insertAdjacentElement("afterend", playbackControls);
+      header.appendChild(playbackControls);
 
       // HOOK UP BUTTONS TO VIDEO ---------------------------------------------------------------------------------
 
@@ -274,159 +263,39 @@
       if (!video) {
         console.warn("Video element not found.");
       } else {
-        const timeDisplay = document.getElementById("player-time");
-        const rewind60 = document.getElementById("rewind-60");
-        const rewind10 = document.getElementById("rewind-10");
-        const playPause = document.getElementById("play-pause");
-        const forward10 = document.getElementById("forward-10");
-        const forward60 = document.getElementById("forward-60");
-        const seekSlider = document.getElementById("seek-slider");
-        const loopContainer = document.getElementById("loop-container");
+        const { loopContainer, seekSlider, updateSliderFill } =
+          addPlaybackListeners(video);
 
-        rewind60?.addEventListener("click", () => {
-          video.currentTime = Math.max(0, video.currentTime - 60);
-        });
-        rewind10?.addEventListener("click", () => {
-          video.currentTime = Math.max(0, video.currentTime - 10);
-        });
-        forward10?.addEventListener("click", () => {
-          video.currentTime = Math.min(video.duration, video.currentTime + 10);
-        });
-        forward60?.addEventListener("click", () => {
-          video.currentTime = Math.min(video.duration, video.currentTime + 60);
-        });
-        playPause?.addEventListener("click", () => {
-          if (video.paused) {
-            video.play();
-            playPause.textContent = "⏸ Pause";
-          } else {
-            video.pause();
-            playPause.textContent = "▶️ Play";
-          }
+        clickOverlay.addEventListener("click", (e) => {
+          const xCoord = e.offsetX; // X within the div
+          console.log("Clicked X within div:", xCoord);
+          let playbackDivWidth = clickOverlay.getBoundingClientRect().width;
+
+          console.log(
+            "xCoord is",
+            xCoord,
+            "and total width is",
+            playbackDivWidth
+          );
+          const percentage = (xCoord / playbackDivWidth) * 100;
+          console.log(percentage);
+          video.currentTime = (percentage / 100) * video.duration;
+          seekSlider.value = percentage;
+          updateSliderFill(percentage);
         });
 
-        // Time formatter
-        function formatTime(seconds) {
-          const h = Math.floor(seconds / 3600);
-          const m = Math.floor((seconds % 3600) / 60);
-          const s = Math.floor(seconds % 60);
-          const hh = h > 0 ? h.toString().padStart(2, "0") + ":" : "";
-          const mm = (h > 0 ? m.toString().padStart(2, "0") : m) + ":";
-          const ss = s.toString().padStart(2, "0");
-          return hh + mm + ss;
-        }
-        video.addEventListener("timeupdate", () => {
-          const current = formatTime(video.currentTime);
-          const total = formatTime(video.duration);
-          timeDisplay.textContent = `${current} / ${total}`;
-        });
-
-        // ⏱️ Sync slider with video
-        video.addEventListener("timeupdate", () => {
-          if (!seekSlider.dragging) {
-            seekSlider.value = (video.currentTime / video.duration) * 100;
-          }
-        });
-
-        // 👆 Scrub video on slider input
-        seekSlider.addEventListener("input", () => {
-          const percent = seekSlider.value;
-          video.currentTime = (percent / 100) * video.duration;
-        });
-
-        // Optional: prevent conflict during drag
-        seekSlider.addEventListener("mousedown", () => {
-          seekSlider.dragging = true;
-        });
-        seekSlider.addEventListener("mouseup", () => {
-          seekSlider.dragging = false;
-        });
-
-        const wrapper = document.querySelector(".slider-wrapper");
+        let currentPercent = 0;
 
         video.addEventListener("timeupdate", () => {
-          const percent = (video.currentTime / video.duration) * 100;
-          seekSlider.value = percent;
-          updateSliderFill(percent);
+          currentPercent = (video.currentTime / video.duration) * 100;
+
+          darkOverlay.style.width = `${100 - currentPercent}%`;
+          // console.log(currentPercent);
         });
-
-        // Seek video when slider changes
-        seekSlider.addEventListener("input", () => {
-          const seekTime = (seekSlider.value / 100) * video.duration;
-          video.currentTime = seekTime;
-          updateSliderFill(seekSlider.value);
-        });
-
-        // Update slider background fill
-        function updateSliderFill(percent) {
-          seekSlider.style.backgroundImage = `linear-gradient(to right, #08f 0%, #08f ${percent}%, #444 ${percent}%, #444 100%)`;
-        }
-
-        let loopStart = null;
-        let loopEnd = null;
-        let looping = false;
-
-        createControls(video);
-
-        video.addEventListener("timeupdate", () => {
-          if (looping && loopStart !== null && loopEnd !== null) {
-            if (video.currentTime >= loopEnd) {
-              video.currentTime = loopStart;
-              video.play();
-            }
-          }
-        });
-
-        // For Loop Functionality
-        function createControls(video) {
-          const btnStart = document.createElement("button");
-
-          btnStart.textContent = "00:00:00";
-          btnStart.onclick = () => {
-            loopStart = video.currentTime;
-            btnStart.textContent = formatTime(loopStart);
-          };
-
-          const btnEnd = document.createElement("button");
-
-          btnEnd.textContent = "00:00:00";
-          btnEnd.onclick = () => {
-            loopEnd = video.currentTime;
-            btnEnd.textContent = formatTime(loopEnd);
-          };
-
-          const btnToggle = document.createElement("button");
-          btnToggle.textContent = "Loop";
-          btnToggle.style.backgroundColor = "#555"; // default (inactive)
-          btnToggle.style.color = "white";
-          btnToggle.style.border = "none";
-          btnToggle.style.padding = "6px 12px";
-          btnToggle.style.borderRadius = "4px";
-          btnToggle.style.cursor = "pointer";
-
-          btnToggle.onclick = () => {
-            looping = !looping;
-            if (looping) {
-              btnToggle.style.backgroundColor = "green";
-            } else {
-              btnToggle.style.backgroundColor = "#555";
-            }
-          };
-
-          [btnStart, btnEnd, btnToggle].forEach((btn) => {
-            btn.style.padding = "6px";
-            btn.style.background = "#444";
-            btn.style.border = "none";
-            btn.style.borderRadius = "4px";
-            btn.style.color = "white";
-            btn.style.cursor = "pointer";
-            btn.style.outline = "none";
-          });
-
-          loopContainer.appendChild(btnStart);
-          loopContainer.appendChild(btnEnd);
-          loopContainer.appendChild(btnToggle);
-        }
+        const { btnStart, btnEnd, btnToggle } = createLoopControls(video);
+        loopContainer.appendChild(btnStart);
+        loopContainer.appendChild(btnEnd);
+        loopContainer.appendChild(btnToggle);
       }
     } else {
       // Code for any other page matched by your @match (if any)

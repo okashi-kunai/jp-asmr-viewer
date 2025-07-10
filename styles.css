@@ -27,42 +27,62 @@
   transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
-#cv-grid-container {
+#img-grid-container {
   margin-left: auto;
   margin-right: auto;
-  width: 90vw;
+  /* width: 90vw; */
   background: #121212;
-  padding: 20px;
   z-index: 9999;
-  border-radius: 12px;
+  /* border-radius: 12px; */
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
   font-family: sans-serif;
-}
-#cv-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  justify-content: center;
-  gap: 20px;
-}
-.cv-card {
-  position: relative;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  height: 300px;
-  cursor: pointer;
-  transition: transform 0.2s ease;
+  /* justify-content: center; */
 }
 
-.cv-card:hover {
+/* Apply padding only if screen width > 460px */
+@media (min-width: 460px) {
+  #img-grid-container {
+    padding: 20px;
+  }
+}
+
+#img-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  justify-content: center;
+  justify-items: center;
+  gap: 20px;
+}
+
+@media (min-width: 460px) {
+  #img-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+.img-card {
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  color: #fff;
+  display: block;
+  flex-direction: column;
+  /* height: 300px; */
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  border-radius: 10px;
+}
+
+@media (min-width: 460px) {
+  .img-card img {
+    border-radius: 10px;
+  }
+}
+
+.img-card:hover {
   transform: scale(1.03);
 }
 
-.cv-card img {
-  position: absolute;
+.img-card img {
+  /* position: absolute; */
   top: 0;
   left: 0;
   right: 0;
@@ -73,7 +93,7 @@
   z-index: 0;
 }
 
-.cv-info {
+.img-info {
   position: absolute;
   bottom: 0;
   width: 100%;
@@ -85,13 +105,13 @@
   z-index: 1;
 }
 
-.cv-title {
+.img-title {
   font-size: 1rem;
   font-weight: bold;
   margin-bottom: 5px;
 }
 
-.cv-author {
+.img-author {
   position: absolute;
   top: 12px;
   left: 12px;
@@ -190,13 +210,18 @@
 
 /* Time Label */
 #player-time {
-  color: #e0e0e0;
-  font-size: 0.95rem;
+  color: #ffffff; /* Brighter for better contrast */
+  font-size: 1rem; /* Slightly larger for readability */
   font-family: "Courier New", monospace;
   text-align: center;
-  margin-top: 6px;
-  margin-bottom: 6px;
-  letter-spacing: 1px;
+  margin: 8px 0; /* Shorthand for top & bottom margin */
+  letter-spacing: 1.5px; /* Extra spacing for time readability */
+  background-color: rgba(255, 255, 255, 0.05); /* Subtle background */
+  padding: 6px 12px; /* Breathing room */
+  border-radius: 4px; /* Soft corners */
+  display: inline-block; /* Keeps padding tight to content */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); /* Gentle shadow for depth */
+  user-select: none; /* Prevent accidental text selection */
 }
 
 /* Playback Buttons */
