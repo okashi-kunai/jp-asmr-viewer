@@ -139,6 +139,9 @@
 }
 
 #seek-slider {
+  all: unset;
+  border: 2px white solid;
+  border-radius: 20px;
   width: 100%;
   -webkit-appearance: none;
   width: 100%;
@@ -147,6 +150,7 @@
   cursor: pointer;
   z-index: 2;
   position: relative;
+  padding: 10px 0;
 }
 
 /* Track background */
@@ -157,7 +161,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: #444;
+  background: transparent;
   z-index: 1;
 }
 
@@ -178,8 +182,8 @@
 /* Thumb */
 #seek-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  height: 16px;
-  width: 16px;
+  height: 32px;
+  width: 32px;
   background: #fff;
   border-radius: 50%;
   border: none;
@@ -194,7 +198,7 @@
 
 #seek-slider:hover::-webkit-slider-thumb,
 #seek-slider:focus::-webkit-slider-thumb {
-  transform: scale(2);
+  transform: scale(1);
   background: #0af;
 
   /* Add glowing shadow without changing size */
@@ -203,7 +207,7 @@
 }
 
 #seek-slider:active::-webkit-slider-thumb {
-  transform: scale(2.8);
+  transform: scale(1.2);
   background: #0cf;
   box-shadow: 0 0 8px rgba(0, 204, 255, 1);
 }
@@ -264,7 +268,11 @@
 
 #loop-container {
   z-index: 9999;
-  background: #222222;
+  border: 2px transparent solid;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.2),
+    0 0 24px rgba(255, 255, 255, 0.1), 0 0 48px rgba(255, 255, 255, 0.05);
+  transition: box-shadow 0.3s ease;
+  background: transparent;
   padding: 10px;
   border-radius: 8px;
   color: white;
@@ -272,6 +280,7 @@
   display: flex;
   flex-direction: row;
   gap: 4px;
+  height: 40px;
 }
 
 .click-overlay {
@@ -289,7 +298,7 @@
   right: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: rgba(0, 0, 0, 0.2);
 }
 
 .video-img {
@@ -302,8 +311,8 @@
 }
 
 #playback-button-text {
-  font-size: 8px;
-  color: white;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 #chapter-div {
@@ -339,4 +348,27 @@
   filter: blur(40px);
   opacity: 0.7;
   transition: background 0.3s ease;
+}
+
+.skeleton {
+  position: "absolute";
+  top: 0;
+  left: 0;
+  background: #ccc;
+  border-radius: 4px;
+  width: 100%;
+  height: 100%;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
 }

@@ -22,12 +22,31 @@ function extractCreators(doc) {
 }
 
 function getImage(doc) {
-  const img = doc.querySelector(".op-square a img");
-  if (!img) return null;
+  // const img = doc.querySelector(".op-square a img");
+  // if (!img) return null;
 
-  if (img.hasAttribute("data-src")) {
-    img.src = img.getAttribute("data-src");
-  }
+  // if (img.hasAttribute("data-src")) {
+  //   img.src = img.getAttribute("data-src");
+  // }
+
+  const paragraphs = doc.querySelectorAll("p");
+  const titleWithRJ = Array.from(paragraphs)
+    .filter((p) => p.querySelector("strong")) // only <p> with <strong>
+    .map((p) => p.querySelector("strong").innerText); // get <strong>'s innerText
+
+  const removeSquareBracketsRegex = /[\[\]]/g;
+
+  const RJ = titleWithRJ[0]
+    .split(" ")
+    .pop()
+    .replace(removeSquareBracketsRegex, "")
+    .trim();
+
+  const dlSiteImageUrl = getDLSiteImgFromRJ(RJ);
+  console.log(dlSiteImageUrl);
+
+  const img = new Image();
+  img.src = dlSiteImageUrl;
 
   return img;
 }
@@ -49,7 +68,12 @@ function createImgCard({ title, creatorText, img, link }) {
   img.style.width = "100%";
   img.style.height = "auto";
   img.style.objectFit = "cover";
-  // img.style.borderRadius = "8px"; // optional rounded corners
+
+  // const skeleton = document.createElement("div");
+  // skeleton.className = "skeleton";
+
+  // imgCard.appendChild(skeleton);
+
   imgCard.appendChild(img);
 
   // Title element
@@ -122,26 +146,26 @@ function createPlaybackControls() {
     const svgColor = "rgba(255,255,255,0.6)";
     const arrowBigLeftDashSvg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"
-      viewBox="0 0 24 24" fill="currentColor" stroke=${svgColor} stroke-width="2" stroke-linecap="round" 
+      viewBox="0 0 24 24" fill="transparent" stroke=${svgColor} stroke-width="2" stroke-linecap="round" 
       stroke-linejoin="round" class="lucide lucide-arrow-big-left-dash-icon lucide-arrow-big-left-dash">
       <path d="M19 15V9"/><path d="M15 15h-3v4l-7-7 7-7v4h3v6z"/>
       </svg>`;
     const arrowBigLeftSvg = `
  <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"
-    viewBox="0 0 24 24" fill="currentColor" stroke=${svgColor} stroke-width="2" 
+    viewBox="0 0 24 24" fill="transparent" stroke=${svgColor} stroke-width="2" 
     stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-big-left-icon lucide-arrow-big-left">
     <path d="M18 15h-6v4l-7-7 7-7v4h6v6z"/>
     </svg> `;
     const playSvg = `
   <svg id="play-svg" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" 
-    viewBox="0 0 24 24" fill="currentColor" stroke=${svgColor}
+    viewBox="0 0 24 24" fill="transparent" stroke=${svgColor}
     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
     class="lucide lucide-play-icon lucide-play">
     <polygon points="6 3 20 12 6 21 6 3"/>
   </svg>`;
     const pauseSvg = `
     <svg id="pause-svg" style="position:absolute; top:0; left:0; opacity:0;" xmlns="http://www.w3.org/2000/svg" width=${buttonRadius}px height=${buttonRadius}px
-    viewBox="0 0 24 24" fill=${svgColor} stroke="currentColor" stroke-width="2" 
+    viewBox="0 0 24 24" fill="transparent" stroke=${svgColor} stroke-width="2" 
     stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pause-icon lucide-pause">
     <rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>
     </svg>`;
@@ -157,9 +181,12 @@ function createPlaybackControls() {
   </button>
 `;
     const playButton = `
-  <button  id="play-pause" style="all: unset;position: relative; cursor: pointer;width:${buttonRadius}px; height:${buttonRadius}px"> 
+
+  <button id="play-pause" style="all: unset; cursor: pointer;width:${buttonRadius}px; height:${buttonRadius}px; border-radius: 100%; border: 4px solid ${svgColor};padding:10px;"> 
+  <div style="position: relative;">
     ${playSvg}
     ${pauseSvg}
+    </div>
   </button>
 `;
     const forward10Button = `
@@ -186,23 +213,23 @@ function createPlaybackControls() {
       <div  style="display: flex; gap: 12px; align-items: center; justify-content: center; font-family: sans-serif;">
       <div id='playback-button' >
         ${rewind60Button}
-        <h6 style="color:white;font-size:10px;">-1:</h6>
+        <h6 id="playback-button-text" >-60s</h6>
       </div>
       <div id='playback-button'>
         ${rewind10Button}
-        <h6 style="color:white;font-size:10px;">-:1</h6>
+        <h6 id="playback-button-text">-10s</h6>
       </div>
       <div id='playback-button'>
         ${playButton}
-        <h6 style="color:white;font-size:10px;opacity:0;">-:1</h6>
+        <h6 id="playback-button-text" style="opacity:0;">-:1</h6>
       </div>
       <div id='playback-button'>
         ${forward10Button}
-        <h6 style="color:white;font-size:10px;">-:1</h6>
+        <h6 id="playback-button-text">+10s</h6>
       </div>
       <div id='playback-button'>
         ${forward60Button}
-        <h6 style="color:white;font-size:10px;">-1:</h6>
+        <h6 id="playback-button-text">+60s</h6>
       </div>
       </div>
       `;
@@ -236,7 +263,7 @@ function createLoopControls(video) {
 
   const btnStart = document.createElement("button");
 
-  btnStart.textContent = "--:--";
+  btnStart.textContent = "から";
   btnStart.onclick = () => {
     loopStart = video.currentTime;
     btnStart.textContent = formatTime(loopStart);
@@ -244,15 +271,22 @@ function createLoopControls(video) {
 
   const btnEnd = document.createElement("button");
 
-  btnEnd.textContent = "--:--";
+  btnEnd.textContent = "まで";
   btnEnd.onclick = () => {
     loopEnd = video.currentTime;
     btnEnd.textContent = formatTime(loopEnd);
   };
 
   const btnToggle = document.createElement("button");
-  btnToggle.textContent = "Loop";
-  btnToggle.style.backgroundColor = "#555"; // default (inactive)
+  // btnToggle.textContent = "Loop";
+  btnToggle.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" 
+    viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+    class="lucide lucide-infinity-icon lucide-infinity">
+    <path d="M6 16c5 0 7-8 12-8a4 4 0 0 1 0 8c-5 0-7-8-12-8a4 4 0 1 0 0 8"/>
+    </svg>`;
+
   btnToggle.style.color = "white";
   btnToggle.style.border = "none";
   btnToggle.style.padding = "6px 12px";
@@ -264,18 +298,20 @@ function createLoopControls(video) {
     if (looping) {
       btnToggle.style.backgroundColor = "green";
     } else {
-      btnToggle.style.backgroundColor = "#555";
+      btnToggle.style.backgroundColor = "transparent";
     }
   };
 
   [btnStart, btnEnd, btnToggle].forEach((btn) => {
     btn.style.padding = "6px";
-    btn.style.background = "#444";
+    btn.style.background = "transparent";
     btn.style.border = "none";
     btn.style.borderRadius = "4px";
     btn.style.color = "white";
     btn.style.cursor = "pointer";
     btn.style.outline = "none";
+    btn.style.display = "flex";
+    btn.style.alignItems = "center";
   });
 
   video.addEventListener("timeupdate", () => {
@@ -362,7 +398,7 @@ function addPlaybackListeners(video) {
   // 🎨 Slider fill
   function updateSliderFill(percent) {
     controls.seekSlider.style.backgroundImage = `
-    linear-gradient(to right, #08f 0%, #08f ${percent}%, #444 ${percent}%, #444 100%)`;
+    linear-gradient(to right, #08f 0%, #08f ${percent}%, transparent ${percent}%, transparent 100%)`;
   }
 
   return {
@@ -389,14 +425,16 @@ function getDLSiteUrl(rjCode) {
     rjNumber: rjCode.slice(2),
   };
 
-  const firstUrlCode = "RJ" + customRoundWithZero(rjNumber);
+  const rjPrefix = rjText.slice(0, 2).toUpperCase();
+
+  const firstUrlCode = rjPrefix + customRoundWithZero(rjNumber);
 
   return firstUrlCode;
 }
 
 function extractRJCode() {
   const paragraphs = document.querySelectorAll("p");
-  const rjCodeElem = Array.from(document.querySelectorAll("p")).filter((p) =>
+  const rjCodeElem = Array.from(paragraphs).filter((p) =>
     p.innerText.startsWith("RJ Code:")
   );
   if (rjCodeElem) return rjCodeElem[0]?.innerText?.split(" ")[2];
@@ -458,10 +496,13 @@ function createAudioVisualizer(video) {
   const canvas = document.createElement("canvas");
   canvas.width = 800;
   canvas.height = 300;
+  canvas.style.maxWidth = "800px";
+  canvas.style.width = "100%";
+
   canvas.style.display = "block";
   canvas.style.margin = "20px auto";
-  canvas.style.background = "#000";
-  document.body.appendChild(canvas);
+  canvas.style.background = "transparent";
+  canvas.style.borderBottom = "2px white solid";
 
   const ctx = canvas.getContext("2d");
 
@@ -482,7 +523,8 @@ function createAudioVisualizer(video) {
     requestAnimationFrame(draw);
     analyser.getByteFrequencyData(dataArray);
 
-    ctx.fillStyle = "#000";
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "transparent";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const barWidth = canvas.width / bufferLength;
@@ -493,6 +535,26 @@ function createAudioVisualizer(video) {
       ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
       x += barWidth;
     }
+
+    // const targetR = 50;
+    // const targetG = 150;
+    // const targetB = 200;
+
+    // for (let i = 0; i < bufferLength; i++) {
+    //   const barHeight = dataArray[i]; // 0 to 255
+
+    //   // Calculate progress (0 to 1)
+    //   const t = barHeight / 255;
+
+    //   // Interpolate between white (255,255,255) and your color
+    //   const r = 255 + t * (targetR - 255);
+    //   const g = 255 + t * (targetG - 255);
+    //   const b = 255 + t * (targetB - 255);
+
+    //   ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    //   ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+    //   x += barWidth;
+    // }
   }
 
   // 6. Wait until video plays to start
@@ -500,6 +562,8 @@ function createAudioVisualizer(video) {
     audioCtx.resume(); // required in some browsers
     draw();
   });
+
+  return { canvas };
 }
 
 function injectColorThief() {
@@ -511,7 +575,7 @@ function injectColorThief() {
   return { script };
 }
 
-function initGradient(imageUrl) {
+function createBackgroundGradient(imageUrl) {
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.src = imageUrl; // Safe for CORS
@@ -593,4 +657,18 @@ function initGradient(imageUrl) {
   `;
     findElement("header").appendChild(bg);
   };
+}
+
+function getDLSiteImgFromRJ(rjCode) {
+  const rjCodeGroup = getDLSiteUrl(rjCode);
+  let rjCodeHeader = "doujin";
+  if (rjCode.charAt(0) === "R") {
+    rjCodeHeader = "doujin";
+  } else if (rjCode.charAt(0) === "V") {
+    rjCodeHeader = "professional";
+  } else if (rjCode.charAt(0) === "B") {
+    rjCodeHeader = "books";
+  }
+  const dlSiteImageUrl = `https://img.dlsite.jp/modpub/images2/work/${rjCodeHeader}/${rjCodeGroup}/${rjCode}_img_main.webp`;
+  return dlSiteImageUrl;
 }

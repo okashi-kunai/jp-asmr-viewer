@@ -150,10 +150,7 @@ function homePageCode() {
     container.appendChild(grid);
   })();
 
-  (function hideMain() {
-    const main = findElement("main"); // HIDE main
-    if (main) main.style.display = "none";
-  })();
+  hideMain();
 
   (function fetchAndFormatCards() {
     const grid = findElement("#img-grid");
@@ -268,7 +265,7 @@ function homePageCode() {
 
 function videoPageCode() {
   // Code for other pages
-  console.log("Other page code running");
+  console.log("Video code running");
 
   hideMain();
 
@@ -325,8 +322,18 @@ function videoPageCode() {
     // console.log(currentPercent);
   });
   const { btnStart, btnEnd, btnToggle } = createLoopControls(video);
+
+  const dividerLine = createElement("div");
+  dividerLine.style.width = "2px";
+  dividerLine.style.height = "100%";
+  dividerLine.style.backgroundColor = "white";
+
   loopContainer.appendChild(btnStart);
+  loopContainer.appendChild(dividerLine);
+
   loopContainer.appendChild(btnEnd);
+  loopContainer.appendChild(dividerLine.cloneNode(true));
+
   loopContainer.appendChild(btnToggle);
 
   // Chapters
@@ -348,15 +355,15 @@ function videoPageCode() {
   }
 
   const rjCode = extractRJCode();
-  const rjCodeGroup = getDLSiteUrl(rjCode);
-  const dlSiteImageUrl = `https://img.dlsite.jp/modpub/images2/work/doujin/${rjCodeGroup}/${rjCode}_img_main.webp`;
+  const dlSiteImageUrl = getDLSiteImgFromRJ(rjCode);
   console.log("DL Site Image is", dlSiteImageUrl);
 
   const { script } = injectColorThief();
   script.onload = () => {
     console.log("ColorThief loaded", window.ColorThief);
-    initGradient(dlSiteImageUrl);
+    createBackgroundGradient(dlSiteImageUrl);
   };
 
-  createAudioVisualizer(video);
+  const { canvas } = createAudioVisualizer(video);
+  header.appendChild(canvas);
 }
