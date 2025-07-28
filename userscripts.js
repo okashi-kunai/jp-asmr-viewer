@@ -78,16 +78,24 @@
   } // Wait for Cloudflare check
 
   waitForCloudflareBypass(() => {
-    (function ifLoadedRemoveLoadingOverlay() {
-      const overlay = document.getElementById("cf-loading-overlay");
-      if (overlay) overlay.remove();
-    })();
+    // (function ifLoadedRemoveLoadingOverlay() {
+    //   const overlay = document.getElementById("cf-loading-overlay");
+    //   if (overlay) overlay.remove();
+    // })();
 
     const url = window.location.href;
     console.log(url);
 
-    const homePageRegex = /^https?:\/\/japaneseasmr\.com\/$/;
+    const homePageRegex = /^https?:\/\/japaneseasmr\.com\/(?:tag\/[^\/]+)?\/?$/;
+    // Matches:
+    //   - https://japaneseasmr.com/
+    //   - https://japaneseasmr.com/tags/something
+    // Trailing slash optional
+
     const videoPageRegex = /^https?:\/\/japaneseasmr\.com\/\d+\/?$/;
+    // Matches:
+    //   - https://japaneseasmr.com/123
+    //   - https://japaneseasmr.com/123/
 
     const homepage = url.match(homePageRegex);
     const videopage = url.match(videoPageRegex);
@@ -107,53 +115,29 @@
 })();
 
 function homePageCode() {
+  removeLoadingScreen();
+
+  const homeBg = findElement("#site-masthead");
+  if (homeBg) {
+    homeBg.style.background = "linear-gradient(to right, #ef8796, #914ba3)";
+  }
+
   const header = findElement("header"); // FIND header element
 
   const container = createElement("div"); // CREATE container element for grid
   container.id = "img-grid-container";
   header.appendChild(container); // APPEND container in header
 
-  if (container) {
-    // Create banner
-    const banner = document.createElement("div");
-    banner.id = "top-banner";
-    banner.textContent = "Most Recent";
-
-    container.parentNode.insertBefore(banner, container);
-
-    let lastScrollY = window.scrollY;
-    window.addEventListener("scroll", () => {
-      const currentScrollY = window.scrollY;
-
-      if (currentScrollY > lastScrollY && currentScrollY > 50) {
-        // Scrolling down — show banner
-        banner.style.transition = "transform 0.3s ease, opacity 0.3s ease";
-        banner.style.transform = "translateY(0)";
-        banner.style.opacity = "1";
-      } else if (currentScrollY <= 50) {
-        banner.style.transition = "none";
-        banner.style.transform = "translateY(0)";
-        banner.style.opacity = "1";
-      } else {
-        // Scrolling up — hide banner
-        banner.style.transition = "transform 0.3s ease, opacity 0.3s ease";
-        banner.style.transform = "translateY(-100%)";
-        banner.style.opacity = "0";
-      }
-      lastScrollY = currentScrollY;
-    });
-  } // CREATE banner
-
-  (function createGrid() {
-    const grid = createElement("div");
-    grid.id = "img-grid";
-    container.appendChild(grid);
-  })();
+  const { bannerDiv } = createScrolledBanner();
+  container.parentNode.insertBefore(bannerDiv, container);
 
   hideMain();
 
   (function fetchAndFormatCards() {
-    const grid = findElement("#img-grid");
+    const grid = createElement("div");
+    grid.id = "img-grid";
+    container.appendChild(grid);
+
     if (!grid) return;
 
     let page = 2;
@@ -235,7 +219,18 @@ function homePageCode() {
     function loadNextPage(page) {
       const iframe = createElement("iframe");
       iframe.style.display = "none"; // hide iframe from view
-      iframe.src = `https://japaneseasmr.com/page/${page}/`;
+
+      const currentPath = window.location.pathname;
+
+      let pageToQuery = "";
+      if (currentPath.startsWith("/tag/")) {
+        const paths = currentPath.split("/");
+        pageToQuery = "/" + paths[1] + "/" + paths[2];
+        console.log(paths);
+        // pageToQuery = currentPath.split('/')
+      }
+
+      iframe.src = `https://japaneseasmr.com${pageToQuery}/page/${page}/`;
 
       iframe.onload = () => {
         const doc = iframe.contentDocument;
@@ -285,7 +280,19 @@ function videoPageCode() {
   fotoramaImg.style.position = "relative";
 
   const { wrapDiv, clickOverlay, darkOverlay } = addVideoProgressOverlay();
-  header.appendChild(wrapDiv);
+  // wrapDiv.style.padding = "0 20px";
+  // wrapDiv.style.position = "fixed";
+  wrapDiv.style.boxShadow = "0 12px 24px 4px rgba(0, 0, 0, 0.5)";
+
+  const wrapDivPadding = createElement("div");
+  wrapDivPadding.style.maxWidth = "640px";
+  wrapDivPadding.style.width = "100%";
+  wrapDivPadding.style.margin = "0 auto";
+
+  wrapDivPadding.style.padding = "0 20px";
+  wrapDivPadding.appendChild(wrapDiv);
+
+  header.appendChild(wrapDivPadding);
 
   const playbackControls = createPlaybackControls();
   header.appendChild(playbackControls);
@@ -323,17 +330,12 @@ function videoPageCode() {
   });
   const { btnStart, btnEnd, btnToggle } = createLoopControls(video);
 
-  const dividerLine = createElement("div");
-  dividerLine.style.width = "2px";
-  dividerLine.style.height = "100%";
-  dividerLine.style.backgroundColor = "white";
+  const dividerLine = createDividerLine();
 
   loopContainer.appendChild(btnStart);
   loopContainer.appendChild(dividerLine);
-
   loopContainer.appendChild(btnEnd);
   loopContainer.appendChild(dividerLine.cloneNode(true));
-
   loopContainer.appendChild(btnToggle);
 
   // Chapters
@@ -359,9 +361,10 @@ function videoPageCode() {
   console.log("DL Site Image is", dlSiteImageUrl);
 
   const { script } = injectColorThief();
-  script.onload = () => {
+  script.onload = async () => {
     console.log("ColorThief loaded", window.ColorThief);
-    createBackgroundGradient(dlSiteImageUrl);
+    await createBackgroundGradient(dlSiteImageUrl);
+    removeLoadingScreen();
   };
 
   const { canvas } = createAudioVisualizer(video);

@@ -12,12 +12,16 @@ function extractTitle(doc) {
 function extractCreators(doc) {
   const paragraphs = doc.querySelectorAll("p");
   const creators = Array.from(paragraphs)
-    .filter((p) => p.innerText.startsWith("CV:"))
-    .map((p) => p.innerText.slice(3).trim());
+    .filter((p) => p.innerText.startsWith("CV:"))[0]
+    .innerText.slice(3)
+    .split(",")
+    .map((s) => s.trim());
 
-  if (creators.length === 1) return creators[0];
-  if (creators.length > 1)
-    return `${creators[0]} + ${creators.length - 1} others`;
+  // if (creators.length === 1) return creators[0];
+  // if (creators.length > 1)
+  //   return `${creators[0]} + ${creators.length - 1} others`;
+  // For some reason creators is an array of array.
+  if (creators.length > 0) return creators;
   return "Unknown";
 }
 
@@ -51,55 +55,65 @@ function getImage(doc) {
   return img;
 }
 
-function createImgCard({ title, creatorText, img, link }) {
-  const imgCard = document.createElement("a");
-  imgCard.className = "img-card";
-  imgCard.href = link;
+function createGridCard({ title, creatorText, img, link }) {
+  const gridCard = document.createElement("a");
+  gridCard.className = "img-card";
+  gridCard.href = link;
 
   // Style card as vertical stack
-  imgCard.style.display = "flex";
-  imgCard.style.flexDirection = "column";
-  imgCard.style.textDecoration = "none";
-  imgCard.style.color = "inherit";
-  imgCard.style.width = "100%";
-  imgCard.style.maxWidth = "460px"; // mobile width limit
+  gridCard.style.display = "flex";
+  gridCard.style.flexDirection = "column";
+  gridCard.style.textDecoration = "none";
+  gridCard.style.color = "inherit";
+  gridCard.style.width = "100%";
+  gridCard.style.maxWidth = "460px"; // mobile width limit
 
   // Style image (full width)
   img.style.width = "100%";
   img.style.height = "auto";
   img.style.objectFit = "cover";
 
-  // const skeleton = document.createElement("div");
-  // skeleton.className = "skeleton";
+  const skeleton = document.createElement("div");
+  skeleton.className = "skeleton";
 
-  // imgCard.appendChild(skeleton);
+  gridCard.appendChild(skeleton);
 
-  imgCard.appendChild(img);
+  skeleton.style.opacity = 1;
+  img.onload = () => {
+    skeleton.style.opacity = 0;
+    skeleton.remove();
+    // setTimeout(() => skeleton.remove(), 300); // Give it time to fade out
+    // continue with your logic, e.g. createBackgroundGradient(img.src)
+  };
+
+  gridCard.appendChild(img);
 
   // Title element
   const titleEl = document.createElement("div");
   titleEl.className = "img-title";
   titleEl.textContent = title;
-  titleEl.style.fontWeight = "600";
-  titleEl.style.fontSize = "16px";
-  titleEl.style.marginTop = "8px";
-  titleEl.style.marginBottom = "4px";
-  titleEl.style.overflow = "hidden";
-  titleEl.style.textOverflow = "ellipsis";
-  titleEl.style.whiteSpace = "nowrap";
 
-  imgCard.appendChild(titleEl);
+  gridCard.appendChild(titleEl);
 
   // Author element
   const authorEl = document.createElement("div");
-  authorEl.className = "img-author2";
-  authorEl.textContent = creatorText;
-  authorEl.style.fontSize = "14px";
-  authorEl.style.color = "#606060"; // gray text like YouTube
+  // authorEl.className = "author-tag";
+  // authorEl.textContent = creatorText;
+  const authorTagsDiv = createElement("div");
+  authorTagsDiv.className = "author-div";
 
-  imgCard.appendChild(authorEl);
+  creatorText.map((creator) => {
+    const newAuthorDiv = createElement("a");
+    newAuthorDiv.className = "author-tag";
+    newAuthorDiv.textContent = creator;
+    const creatorHref = creator.toLowerCase().replace(" ", "-");
+    newAuthorDiv.href = `/tag/${creatorHref}`;
+    authorTagsDiv.appendChild(newAuthorDiv);
+  });
+  authorEl.appendChild(authorTagsDiv);
 
-  return imgCard;
+  gridCard.appendChild(authorEl);
+  return gridCard;
 }
 
 function processCard(card, grid) {
@@ -109,15 +123,14 @@ function processCard(card, grid) {
   const title = extractTitle(card);
   const creatorText = extractCreators(card);
   const img = getImage(card);
-  if (!img) return;
 
-  const imgCard = createImgCard({
+  const gridCard = createGridCard({
     title,
     creatorText,
     img,
     link: titleAnchor.href,
   });
-  grid.appendChild(imgCard);
+  grid.appendChild(gridCard);
 }
 
 // Time formatter
@@ -244,11 +257,12 @@ function createPlaybackControls() {
 
   playbackControls.innerHTML = `
     <div id="player-controls" >
+    ${sliderHTML}
       <div> 
         ${playbackButtonsHTML}
       </div>
       ${loopControlHTML}
-      ${sliderHTML}
+      
     ${playerTimeHTML}
   </div>
 </div>`;
@@ -460,17 +474,20 @@ const findElement = (elem) => document.querySelector(elem);
 const createElement = (elem) => document.createElement(elem);
 
 function addVideoProgressOverlay() {
+  const rjCode = extractRJCode();
+  const dlSiteImageUrl = getDLSiteImgFromRJ(rjCode);
   const videoImg = findElement("img.fotorama__img");
 
   if (videoImg) {
     videoImg.className = "video-img";
     videoImg.style.width = "100%";
+    videoImg.src = dlSiteImageUrl;
   }
 
   const wrapDiv = createElement("div");
   wrapDiv.style.position = "relative";
-  wrapDiv.style.width = "fit-content";
-  wrapDiv.style.margin = "0 auto";
+  wrapDiv.style.width = "100%";
+  // wrapDiv.style.margin = "0 auto";
   wrapDiv.style.borderRadius = "40px";
   wrapDiv.style.overflow = "hidden";
 
@@ -575,7 +592,7 @@ function injectColorThief() {
   return { script };
 }
 
-function createBackgroundGradient(imageUrl) {
+async function createBackgroundGradient(imageUrl) {
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.src = imageUrl; // Safe for CORS
@@ -588,75 +605,105 @@ function createBackgroundGradient(imageUrl) {
   //   const colorThief = new ColorThief();
   //   const palette = colorThief.getPalette(img, 3);
 
-  //   const [r1, g1, b1] = palette[0];
-  //   const [r2, g2, b2] = palette[1];
-  //   const [r3, g3, b3] = palette[2];
+  //   Vibrant.from(img)
+  //     .getPalette()
+  //     .then((palette) => {
+  //       console.log("Palette:", palette);
+  //       const bgColor = palette.Vibrant.hex;
 
-  //   const bg = document.createElement("div");
-  //   bg.className = "gradient-bg";
-  //   bg.style.position = "fixed";
-  //   bg.style.inset = "0";
-  //   bg.style.zIndex = "-1";
-  //   bg.style.filter = "blur(60px)";
-  //   bg.style.background = `linear-gradient(135deg, rgb(${r1},${g1},${b1}), rgb(${r2},${g2},${b2}), rgb(${r3},${g3},${b3}))`;
+  //       // Apply chroma.js enhancements to each color
+  //       // const color1 = chroma(palette[0]).brighten(1).saturate(1).rgb(); // [r,g,b]
+  //       // const color2 = chroma(palette[1]).brighten(1).saturate(1).rgb();
+  //       // const color3 = chroma(palette[2]).brighten(1).saturate(1).rgb();
 
-  //   findElement("header").appendChild(bg);
+  //       // const [r1, g1, b1] = color1;
+  //       // const [r2, g2, b2] = color2;
+  //       // const [r3, g3, b3] = color3;
+
+  //       const bg = document.createElement("div");
+  //       bg.className = "gradient-bg";
+  //       bg.style.position = "fixed";
+  //       bg.style.inset = "0";
+  //       bg.style.zIndex = "-1";
+  //       bg.style.filter = "blur(60px)";
+  //       bg.style.background = `linear-gradient(135deg, ${bgColor})`;
+
+  //       findElement("header").appendChild(bg);
+  //     });
   // };
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  img.onload = () => {
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
 
-    const step = 10;
-    const topColors = [],
-      bottomColors = [],
-      leftColors = [],
-      rightColors = [];
+  await new Promise((resolve) => {
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
 
-    for (let i = 0; i < img.width; i += step) {
-      topColors.push(ctx.getImageData(i, 0, 1, 1).data);
-      bottomColors.push(ctx.getImageData(i, img.height - 1, 1, 1).data);
-    }
+      const step = 10;
+      const topColors = [],
+        bottomColors = [],
+        leftColors = [],
+        rightColors = [];
 
-    for (let i = 0; i < img.height; i += step) {
-      leftColors.push(ctx.getImageData(0, i, 1, 1).data);
-      rightColors.push(ctx.getImageData(img.width - 1, i, 1, 1).data);
-    }
+      for (let i = 0; i < img.width; i += step) {
+        topColors.push(ctx.getImageData(i, 0, 1, 1).data);
+        bottomColors.push(ctx.getImageData(i, img.height - 1, 1, 1).data);
+      }
 
-    const avg = (colors) => {
-      let r = 0,
-        g = 0,
-        b = 0;
-      colors.forEach((data) => {
-        r += data[0];
-        g += data[1];
-        b += data[2];
-      });
-      const len = colors.length;
-      return `rgb(${Math.round(r / len)}, ${Math.round(g / len)}, ${Math.round(
-        b / len
-      )})`;
+      for (let i = 0; i < img.height; i += step) {
+        leftColors.push(ctx.getImageData(0, i, 1, 1).data);
+        rightColors.push(ctx.getImageData(img.width - 1, i, 1, 1).data);
+      }
+
+      const avg = (colors) => {
+        let r = 0,
+          g = 0,
+          b = 0;
+        colors.forEach((data) => {
+          r += data[0];
+          g += data[1];
+          b += data[2];
+        });
+        const len = colors.length;
+        return `rgb(${Math.round(r / len)}, ${Math.round(
+          g / len
+        )}, ${Math.round(b / len)})`;
+      };
+
+      const top = avg(topColors);
+      const bottom = avg(bottomColors);
+      const left = avg(leftColors);
+      const right = avg(rightColors);
+
+      const color1 = chroma(top).brighten(1).saturate(1).rgb();
+      const color2 = chroma(bottom).brighten(1).saturate(1).rgb();
+      const color3 = chroma(left).brighten(1).saturate(1).rgb();
+      const color4 = chroma(right).brighten(1).saturate(1).rgb();
+
+      const [r1, g1, b1] = color1;
+      const [r2, g2, b2] = color2;
+      const [r3, g3, b3] = color3;
+      const [r4, g4, b4] = color4;
+
+      const bg = document.createElement("div");
+      bg.className = "gradient-bg";
+      bg.style.position = "fixed";
+      bg.style.inset = "0";
+      bg.style.zIndex = "-1";
+      bg.style.filter = "blur(60px)";
+      bg.style.background = `
+        linear-gradient(to top, rgba(${r1},${g1},${b1}), rgba(${r2},${g2},${b2})),
+        linear-gradient(to left, rgba(${r3},${g3},${b3}), rgba(${r4},${g4},${b4}))
+      `;
+      bg.style.backgroundRepeat = "no-repeat";
+      bg.style.backgroundSize = "cover";
+
+      findElement("header").appendChild(bg);
+
+      resolve(); // Notify that processing is done
     };
-
-    const top = avg(topColors);
-    const bottom = avg(bottomColors);
-    const left = avg(leftColors);
-    const right = avg(rightColors);
-    const bg = document.createElement("div");
-
-    // Apply gradient background
-    bg.className = "gradient-bg";
-    bg.style.position = "fixed";
-    bg.style.inset = "0";
-    bg.style.zIndex = "-1";
-    bg.style.filter = "blur(60px)";
-    bg.style.background = `
-    linear-gradient(135deg , ${left}, ${right})
-  `;
-    findElement("header").appendChild(bg);
-  };
+  });
 }
 
 function getDLSiteImgFromRJ(rjCode) {
@@ -671,4 +718,49 @@ function getDLSiteImgFromRJ(rjCode) {
   }
   const dlSiteImageUrl = `https://img.dlsite.jp/modpub/images2/work/${rjCodeHeader}/${rjCodeGroup}/${rjCode}_img_main.webp`;
   return dlSiteImageUrl;
+}
+
+function createScrolledBanner() {
+  const bannerDiv = document.createElement("div");
+  bannerDiv.id = "top-banner";
+  bannerDiv.textContent = "Most Recent";
+
+  const scrollThreshold = 250;
+
+  let lastScrollY = window.scrollY;
+  window.addEventListener("scroll", () => {
+    const currentScrollY = window.scrollY;
+
+    if (currentScrollY > lastScrollY && currentScrollY > scrollThreshold) {
+      // Scrolling down — show banner
+      bannerDiv.style.transition = "transform 0.3s ease, opacity 0.3s ease";
+      bannerDiv.style.transform = "translateY(0)";
+      bannerDiv.style.opacity = "1";
+    } else if (currentScrollY <= scrollThreshold) {
+      bannerDiv.style.transition = "none";
+      bannerDiv.style.transform = "translateY(0)";
+      bannerDiv.style.opacity = "1";
+    } else {
+      // Scrolling up — hide banner
+      bannerDiv.style.transition = "transform 0.3s ease, opacity 0.3s ease";
+      bannerDiv.style.transform = "translateY(-100%)";
+      bannerDiv.style.opacity = "0";
+    }
+    lastScrollY = currentScrollY;
+  });
+
+  return { bannerDiv };
+}
+
+function createDividerLine() {
+  const dividerLine = createElement("div");
+  dividerLine.style.width = "2px";
+  dividerLine.style.height = "100%";
+  dividerLine.style.backgroundColor = "white";
+  return dividerLine;
+}
+
+function removeLoadingScreen() {
+  const overlay = document.getElementById("cf-loading-overlay");
+  if (overlay) overlay.remove();
 }
