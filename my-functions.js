@@ -26,28 +26,25 @@ function extractCreators(doc) {
 }
 
 function getImage(doc) {
-  // const img = doc.querySelector(".op-square a img");
-  // if (!img) return null;
+  let RJ = extractRJCode(doc);
 
-  // if (img.hasAttribute("data-src")) {
-  //   img.src = img.getAttribute("data-src");
-  // }
+  if (!RJ) {
+    const paragraphs = doc.querySelectorAll("p");
+    const titleWithRJ = Array.from(paragraphs)
+      .filter((p) => p.querySelector("strong")) // only <p> with <strong>
+      .map((p) => p.querySelector("strong").innerText); // get <strong>'s innerText
 
-  const paragraphs = doc.querySelectorAll("p");
-  const titleWithRJ = Array.from(paragraphs)
-    .filter((p) => p.querySelector("strong")) // only <p> with <strong>
-    .map((p) => p.querySelector("strong").innerText); // get <strong>'s innerText
+    const removeSquareBracketsRegex = /[\[\]]/g;
 
-  const removeSquareBracketsRegex = /[\[\]]/g;
-
-  const RJ = titleWithRJ[0]
-    .split(" ")
-    .pop()
-    .replace(removeSquareBracketsRegex, "")
-    .trim();
+    RJ = titleWithRJ[0]
+      .split(" ")
+      .pop()
+      .replace(removeSquareBracketsRegex, "")
+      .trim();
+  }
 
   const dlSiteImageUrl = getDLSiteImgFromRJ(RJ);
-  console.log(dlSiteImageUrl);
+  // console.log(dlSiteImageUrl);
 
   const img = new Image();
   img.src = dlSiteImageUrl;
@@ -446,28 +443,33 @@ function getDLSiteUrl(rjCode) {
   return firstUrlCode;
 }
 
-function extractRJCode() {
-  const paragraphs = document.querySelectorAll("p");
+function extractRJCode(doc = document) {
+  const paragraphs = doc.querySelectorAll("p");
   const rjCodeElem = Array.from(paragraphs).filter((p) =>
     p.innerText.startsWith("RJ Code:")
   );
-  if (rjCodeElem) return rjCodeElem[0]?.innerText?.split(" ")[2];
-  else return "No RJ Code";
+  if (rjCodeElem.length > 0) return rjCodeElem[0]?.innerText?.split(" ")[2];
+  else return null;
 }
 
-function changeLogo(logo) {
-  const okayuAhe =
-    "https://raw.githubusercontent.com/okashi-kunai/jp-asmr-viewer/refs/heads/main/public/okayu-transparent.png";
-  logo.src = okayuAhe;
-  logo.srcset = okayuAhe;
-  logo.style.width = "200px";
-  logo.style.height = "auto";
-  logo.sizes = null;
-  logo.onclick = function () {
-    window.location.href = "/";
-  };
-  logo.style.cursor = "pointer";
-  document.querySelector("header").appendChild(logo);
+function changeLogo() {
+  const logo = document.querySelector("img.custom-logo");
+  if (logo) {
+    const okayuAhe =
+      "https://raw.githubusercontent.com/okashi-kunai/jp-asmr-viewer/refs/heads/main/public/okayu-transparent.png";
+    logo.src = okayuAhe;
+    logo.srcset = okayuAhe;
+    logo.style.width = "200px";
+    logo.style.height = "auto";
+    logo.sizes = null;
+    logo.onclick = function () {
+      window.location.href = "/";
+    };
+    logo.style.cursor = "pointer";
+    document.querySelector("header").appendChild(logo);
+  } else {
+    console.error("No logo found on page");
+  }
 }
 
 const findElement = (elem) => document.querySelector(elem);
@@ -762,5 +764,92 @@ function createDividerLine() {
 
 function removeLoadingScreen() {
   const overlay = document.getElementById("cf-loading-overlay");
-  if (overlay) overlay.remove();
+  if (overlay) {
+    overlay.remove();
+  } else {
+    console.error("Couldn't remove loading screen");
+  }
+}
+
+function addHomeGradient() {
+  const homeBg = findElement("#site-masthead");
+  if (homeBg) {
+    // homeBg.style.background = "linear-gradient(to right, #ef8796, #914ba3)";
+    // homeBg.style.background = "linear-gradient(to right, #0d324d, #7f5a83)";
+
+    homeBg.style.background = "linear-gradient(to right, #2c003e, #120a4f)";
+  } else {
+    console.error("Couldn't add home linear gradient");
+  }
+}
+// document.body.style.opacity = "0.8";
+
+function createFetchCardSpinner() {
+  const fetchCardSpinner = document.createElement("div"); //CREATE await spinner
+  fetchCardSpinner.id = "loading-spinner";
+  fetchCardSpinner.style.display = "none"; // hide initially
+  fetchCardSpinner.innerHTML = `
+              <svg
+                width="40" height="40"
+                viewBox="0 0 50 50"
+                style="margin: 20px auto; display: block;"
+              >
+                <circle
+                  cx="25" cy="25" r="20"
+                  fill="none" stroke="#fff" stroke-width="5"
+                  stroke-linecap="round"
+                  stroke-dasharray="31.4 31.4"
+                  transform="rotate(0 25 25)"
+                >
+                  <animateTransform
+                    attributeName="transform"
+                    type="rotate"
+                    from="0 25 25"
+                    to="360 25 25"
+                    dur="1s"
+                    repeatCount="indefinite"
+                  />
+                </circle>
+              </svg>
+            `;
+
+  return fetchCardSpinner;
+}
+
+function createBackToTopButton() {
+  // Create button container
+  const backToTopBtn = document.createElement("button");
+  backToTopBtn.style.position = "fixed";
+  backToTopBtn.style.bottom = "20px";
+  backToTopBtn.style.right = "20px";
+  backToTopBtn.style.padding = "16px";
+  backToTopBtn.style.border = "none";
+  backToTopBtn.style.borderRadius = "50%";
+  backToTopBtn.style.background = "rgba(0,0,0,0.8)";
+  backToTopBtn.style.cursor = "pointer";
+  backToTopBtn.style.zIndex = 10000;
+  backToTopBtn.style.display = "none"; // hidden initially
+  backToTopBtn.style.alignItems = "center";
+  backToTopBtn.style.justifyContent = "center";
+
+  // Insert your SVG inside the button
+  backToTopBtn.innerHTML = `
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" 
+viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" 
+stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevrons-up-icon lucide-chevrons-up">
+  <path d="m17 11-5-5-5 5"/>
+  <path d="m17 18-5-5-5 5"/>
+</svg>`;
+
+  // Show button after scrolling down 200px
+  window.addEventListener("scroll", () => {
+    backToTopBtn.style.display = window.scrollY > 200 ? "flex" : "none";
+  });
+
+  // Smooth scroll to top on click
+  backToTopBtn.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  return backToTopBtn;
 }

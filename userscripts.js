@@ -1,58 +1,3 @@
-// (function () {
-//   "use strict";
-
-//   // Block window.open spam
-//   const originalOpen = window.open;
-//   window.open = function (url, ...args) {
-//     console.log("[Blocker] window.open blocked:", url);
-//     return null;
-//   };
-
-//   // Block window.close
-//   window.close = function () {
-//     console.log("[Blocker] window.close() prevented");
-//   };
-
-//   // Remove known popunder ad elements
-//   const adSelectors = [
-//     'script[src*="pemsrv.com"]',
-//     'script[src*="exoclick.com"]',
-//     'script:contains("popMagic")',
-//     'script:contains("AdProvider")',
-//     "ins.adsbyexoclick",
-//     'script[src*="venor.php"]',
-//     'script[src*="popunder"]',
-//   ];
-
-//   const observer = new MutationObserver(() => {
-//     adSelectors.forEach((sel) => {
-//       document.querySelectorAll(sel).forEach((el) => {
-//         el.remove();
-//         console.log(`[Blocker] Removed ad element:`, sel);
-//       });
-//     });
-//   });
-
-//   observer.observe(document.documentElement, {
-//     childList: true,
-//     subtree: true,
-//   });
-
-//   // Remove inline ad elements on page load
-//   window.addEventListener("load", () => {
-//     adSelectors.forEach((sel) => {
-//       document.querySelectorAll(sel).forEach((el) => {
-//         el.remove();
-//       });
-//     });
-
-//     // Extra: Kill global ad object
-//     delete window.popMagic;
-//     delete window.AdProvider;
-//     console.log("[Blocker] Removed popMagic and AdProvider objects");
-//   });
-// })();
-
 (function () {
   "use strict";
   console.log("✅ Userscript injected:", window.location.href);
@@ -78,11 +23,6 @@
   } // Wait for Cloudflare check
 
   waitForCloudflareBypass(() => {
-    // (function ifLoadedRemoveLoadingOverlay() {
-    //   const overlay = document.getElementById("cf-loading-overlay");
-    //   if (overlay) overlay.remove();
-    // })();
-
     const url = window.location.href;
     console.log(url);
 
@@ -100,8 +40,7 @@
     const homepage = url.match(homePageRegex);
     const videopage = url.match(videoPageRegex);
 
-    const logo = document.querySelector("img.custom-logo");
-    logo && changeLogo(logo);
+    changeLogo();
 
     if (homepage) {
       homePageCode();
@@ -116,11 +55,7 @@
 
 function homePageCode() {
   removeLoadingScreen();
-
-  const homeBg = findElement("#site-masthead");
-  if (homeBg) {
-    homeBg.style.background = "linear-gradient(to right, #ef8796, #914ba3)";
-  }
+  addHomeGradient();
 
   const header = findElement("header"); // FIND header element
 
@@ -132,49 +67,21 @@ function homePageCode() {
   container.parentNode.insertBefore(bannerDiv, container);
 
   hideMain();
-
   (function fetchAndFormatCards() {
     const grid = createElement("div");
     grid.id = "img-grid";
     container.appendChild(grid);
 
-    if (!grid) return;
+    const pageNumElArr = document.querySelectorAll(".page-numbers");
+    const finalPageNum = parseInt(
+      pageNumElArr[pageNumElArr.length - 2].innerText.replace(/,/g, "")
+    );
 
     let page = 2;
     let isLoading = false;
 
-    (function createFetchCardSpinner() {
-      const fetchCardSpinner = document.createElement("div"); //CREATE await spinner
-      fetchCardSpinner.id = "loading-spinner";
-      fetchCardSpinner.style.display = "none"; // hide initially
-      fetchCardSpinner.innerHTML = `
-              <svg
-                width="40" height="40"
-                viewBox="0 0 50 50"
-                style="margin: 20px auto; display: block;"
-              >
-                <circle
-                  cx="25" cy="25" r="20"
-                  fill="none" stroke="#fff" stroke-width="5"
-                  stroke-linecap="round"
-                  stroke-dasharray="31.4 31.4"
-                  transform="rotate(0 25 25)"
-                >
-                  <animateTransform
-                    attributeName="transform"
-                    type="rotate"
-                    from="0 25 25"
-                    to="360 25 25"
-                    dur="1s"
-                    repeatCount="indefinite"
-                  />
-                </circle>
-              </svg>
-            `;
-      container.append(fetchCardSpinner); // APPEND to bottom of container
-    })();
-
-    const fetchCardSpinner = document.getElementById("loading-spinner");
+    const fetchCardSpinner = createFetchCardSpinner();
+    container.append(fetchCardSpinner);
 
     // Render cards from any parsed document (initial or fetched)
     function renderCardsFromDocument(doc) {
@@ -191,22 +98,28 @@ function homePageCode() {
 
     // Initial render: use current page's document
     renderCardsFromDocument(document);
+    loadNextPage(page);
+    // loadNextPage(page, () => {
+    //   page++;
 
-    loadNextPage(page, () => {
-      page++;
-
-      // Check if page height is still not enough for scrolling
-      if (document.body.scrollHeight <= window.innerHeight) {
-        loadNextPage(page, () => {
-          page++; // Now infinite scroll continues from page 3
-        });
-      }
-    });
+    //   // Check if page height is still not enough for scrolling
+    //   if (document.body.scrollHeight <= window.innerHeight) {
+    //     loadNextPage(page, () => {
+    //       page++; // Now infinite scroll continues from page 3
+    //     });
+    //   }
+    // });
 
     // Infinite scroll loading next pages
-    window.addEventListener("scroll", () => {
+    const scrollHandler = () => {
       const nearBottom =
         window.innerHeight + window.scrollY >= document.body.scrollHeight - 300;
+
+      if (page > finalPageNum) {
+        window.removeEventListener("scroll", scrollHandler);
+        console.log("✅ Reached final page, scroll listener removed.");
+        return;
+      }
 
       if (nearBottom && !isLoading) {
         isLoading = true;
@@ -214,7 +127,9 @@ function homePageCode() {
         loadNextPage(page);
         page++;
       }
-    });
+    };
+
+    window.addEventListener("scroll", scrollHandler);
 
     function loadNextPage(page) {
       const iframe = createElement("iframe");
@@ -256,6 +171,9 @@ function homePageCode() {
       document.body.appendChild(iframe); // add iframe to DOM so it loads
     }
   })(); // FETCHES and FORMATS cards
+
+  const backToTopBtn = createBackToTopButton();
+  document.body.appendChild(backToTopBtn);
 }
 
 function videoPageCode() {
