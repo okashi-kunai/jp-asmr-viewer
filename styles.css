@@ -412,3 +412,19 @@
     opacity: 1;
   }
 }
+
+.wrap-div {
+  position: relative;
+  width: 100%;
+  border-radius: 40px;
+  overflow: hidden;
+
+  box-shadow: 0 12px 24px 4px rgba(0, 0, 0, 0.5);
+}
+
+.wrap-div-padding {
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 20px;
+}

@@ -338,7 +338,7 @@ function createLoopControls(video) {
 }
 
 // For Interacting with playback buttons
-function addPlaybackListeners(video) {
+function addPlaybackListeners(video, clickOverlay, darkOverlay) {
   const $ = (id) => document.getElementById(id);
 
   const controls = {
@@ -363,6 +363,27 @@ function addPlaybackListeners(video) {
         ))
     )
   );
+
+  // Click overlay to progress through video
+  clickOverlay.addEventListener("click", (e) => {
+    const xCoord = e.offsetX; // X within the div
+    console.log("Clicked X within div:", xCoord);
+    let playbackDivWidth = clickOverlay.getBoundingClientRect().width;
+
+    console.log("xCoord is", xCoord, "and total width is", playbackDivWidth);
+    const percentage = (xCoord / playbackDivWidth) * 100;
+    console.log(percentage);
+    video.currentTime = (percentage / 100) * video.duration;
+    controls.seekSlider.value = percentage;
+    updateSliderFill(percentage);
+  });
+
+  // Update overlay percentage as video progresses
+  let currentPercent = 0;
+  video.addEventListener("timeupdate", () => {
+    currentPercent = (video.currentTime / video.duration) * 100;
+    darkOverlay.style.width = `${100 - currentPercent}%`;
+  });
 
   controls.playPause?.addEventListener("click", () => {
     const playing = !video.paused;
@@ -411,6 +432,15 @@ function addPlaybackListeners(video) {
     controls.seekSlider.style.backgroundImage = `
     linear-gradient(to right, #08f 0%, #08f ${percent}%, transparent ${percent}%, transparent 100%)`;
   }
+
+  const { btnStart, btnEnd, btnToggle } = createLoopControls(video);
+  const dividerLine = createDividerLine();
+
+  controls.loopContainer.appendChild(btnStart);
+  controls.loopContainer.appendChild(dividerLine);
+  controls.loopContainer.appendChild(btnEnd);
+  controls.loopContainer.appendChild(dividerLine.cloneNode(true));
+  controls.loopContainer.appendChild(btnToggle);
 
   return {
     loopContainer: controls.loopContainer,
@@ -475,23 +505,19 @@ function changeLogo() {
 const findElement = (elem) => document.querySelector(elem);
 const createElement = (elem) => document.createElement(elem);
 
-function addVideoProgressOverlay() {
+function addVideoProgressOverlay(wrapDiv) {
   const rjCode = extractRJCode();
   const dlSiteImageUrl = getDLSiteImgFromRJ(rjCode);
   const videoImg = findElement("img.fotorama__img");
 
-  if (videoImg) {
-    videoImg.className = "video-img";
-    videoImg.style.width = "100%";
-    videoImg.src = dlSiteImageUrl;
+  if (!videoImg) {
+    console.error("Couldn't find video div");
+    return;
   }
 
-  const wrapDiv = createElement("div");
-  wrapDiv.style.position = "relative";
-  wrapDiv.style.width = "100%";
-  // wrapDiv.style.margin = "0 auto";
-  wrapDiv.style.borderRadius = "40px";
-  wrapDiv.style.overflow = "hidden";
+  videoImg.className = "video-img";
+  videoImg.style.width = "100%";
+  videoImg.src = dlSiteImageUrl;
 
   // Insert the wrapper before the img
   videoImg.parentNode.insertBefore(wrapDiv, videoImg);
@@ -505,9 +531,7 @@ function addVideoProgressOverlay() {
   const darkOverlay = document.createElement("div");
   darkOverlay.className = "dark-overlay";
 
-  wrapDiv.appendChild(darkOverlay);
-  wrapDiv.appendChild(clickOverlay);
-  return { wrapDiv, clickOverlay, darkOverlay };
+  return { clickOverlay, darkOverlay };
 }
 
 function createAudioVisualizer(video) {
@@ -852,4 +876,93 @@ stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevrons-up-
   });
 
   return backToTopBtn;
+}
+
+function renderCardsFromDom(doc, grid) {
+  const cards = doc.querySelectorAll(".entry-preview-wrapper");
+  if (!cards.length) {
+    console.log("No cards found.");
+    return;
+  }
+
+  cards.forEach((card) => {
+    processCard(card, grid);
+  });
+}
+
+function getDLSiteImg() {
+  const rjCode = extractRJCode();
+  if (!rjCode) {
+    console.log("No RJ code extracted");
+    return;
+  }
+  const dlSiteImageUrl = getDLSiteImgFromRJ(rjCode);
+  console.log("DL Site Image is", dlSiteImageUrl);
+  return { dlSiteImageUrl, rjCode };
+}
+
+function injectBgGradient(dlSiteImageUrl) {
+  // Wait for background color to update before showing video page
+  const { script } = injectColorThief();
+  script.onload = async () => {
+    console.log("ColorThief loaded", window.ColorThief);
+    await createBackgroundGradient(dlSiteImageUrl);
+    removeLoadingScreen();
+  };
+}
+
+function removePrimaryMenu() {
+  const primaryMenu = findElement("#site-section-primary-menu");
+  if (!primaryMenu) {
+    console.log("No Primary Menu found");
+    return;
+  }
+  primaryMenu.remove();
+}
+
+function showTags() {
+  const tagsElArr = document.querySelectorAll(".post-meta.post-tags a");
+  tagsElArr.forEach((el) => console.log(el.innerText));
+}
+
+// Get Post Data
+
+function extractVideoTitle() {
+  const title = document.querySelector(".page-title");
+  if (!title) {
+    console.log("Video title element not found");
+    return "";
+  }
+  return title.innerText;
+}
+
+function extractVideoTags() {
+  const tagsElArr = document.querySelectorAll(".post-meta.post-tags a");
+  if (tagsElArr.length === 0) {
+    console.log("Video tag element not found");
+    return [];
+  }
+  const tagsArr = Array.from(tagsElArr).map((el) => el.innerText);
+  return tagsArr;
+}
+
+function extractVideoCVs() {
+  const cvEl = document.getElementById("voice_actors");
+  if (!cvEl) {
+    console.log("No Video CV found");
+    return [];
+  }
+
+  const cvArr = cvEl.innerText
+    .slice(3)
+    .trim()
+    .split(",")
+    .map((cv) => cv.trim());
+
+  if (cvArr.length > 0) return cvArr;
+  return [];
+}
+
+function extractVideoUrl() {
+  return window.location.href;
 }

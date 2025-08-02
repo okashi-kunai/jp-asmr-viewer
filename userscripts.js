@@ -2,54 +2,83 @@
   "use strict";
   console.log("✅ Userscript injected:", window.location.href);
 
-  function waitForCloudflareBypass(callback, maxWait = 1000) {
+  function waitForCloudflareBypass(
+    callback,
+    initialMaxWait = 1000,
+    extendedMaxWait = 15000
+  ) {
     const startTime = Date.now();
+    let challengeDetected = false;
 
     const interval = setInterval(() => {
-      const cfGone =
-        !document.querySelector("#cf-challenge") &&
-        !document.querySelector("iframe[src*='challenge']");
+      const cfChallengePresent =
+        document.querySelector("#cf-challenge") ||
+        document.querySelector("iframe[src*='challenge']");
       const hasCookie = document.cookie.includes("__cf_bm");
-      const timedOut = Date.now() - startTime > maxWait;
+      const elapsed = Date.now() - startTime;
 
-      if ((cfGone && hasCookie) || timedOut) {
-        console.log("✅ Proceeding after Cloudflare check or timeout");
+      // Detect if challenge shows up anytime during wait
+      if (cfChallengePresent) {
+        challengeDetected = true;
+        console.log("⚠️ Cloudflare challenge detected, extending wait...");
+      }
+
+      // Decide which timeout to use
+      const maxWait = challengeDetected ? extendedMaxWait : initialMaxWait;
+
+      // Condition to proceed:
+      // - Challenge gone and cookie set, or
+      // - Timed out according to current maxWait
+      if ((!cfChallengePresent && hasCookie) || elapsed > maxWait) {
         clearInterval(interval);
+        console.log("✅ Proceeding after Cloudflare check or timeout");
         callback();
       } else {
-        console.log("⏳ Waiting on Cloudflare...");
+        console.log(`⏳ Waiting on Cloudflare... (${elapsed}ms elapsed)`);
       }
-    }, 500);
-  } // Wait for Cloudflare check
+    }, 200);
+  }
 
-  waitForCloudflareBypass(() => {
-    const url = window.location.href;
-    console.log(url);
-
-    const homePageRegex = /^https?:\/\/japaneseasmr\.com\/(?:tag\/[^\/]+)?\/?$/;
-    // Matches:
-    //   - https://japaneseasmr.com/
-    //   - https://japaneseasmr.com/tags/something
-    // Trailing slash optional
-
-    const videoPageRegex = /^https?:\/\/japaneseasmr\.com\/\d+\/?$/;
-    // Matches:
-    //   - https://japaneseasmr.com/123
-    //   - https://japaneseasmr.com/123/
-
-    const homepage = url.match(homePageRegex);
-    const videopage = url.match(videoPageRegex);
-
-    changeLogo();
-
-    if (homepage) {
-      homePageCode();
-    } else if (videopage) {
-      videoPageCode();
+  // 2. Wait for DOM ready
+  function onDOMReady(fn) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", fn);
     } else {
-      // Code for any other page matched by your @match (if any)
-      console.log("Other pages");
+      fn();
     }
+  }
+  onDOMReady(() => {
+    console.log("DOM has loeaded.");
+    waitForCloudflareBypass(() => {
+      const url = window.location.href;
+      console.log(url);
+
+      const homePageRegex =
+        /^https?:\/\/japaneseasmr\.com\/(?:tag\/[^\/]+)?\/?$/;
+      // Matches:
+      //   - https://japaneseasmr.com/
+      //   - https://japaneseasmr.com/tags/something
+      // Trailing slash optional
+
+      const videoPageRegex = /^https?:\/\/japaneseasmr\.com\/\d+\/?$/;
+      // Matches:
+      //   - https://japaneseasmr.com/123
+      //   - https://japaneseasmr.com/123/
+
+      const homepage = url.match(homePageRegex);
+      const videopage = url.match(videoPageRegex);
+
+      changeLogo();
+
+      if (homepage) {
+        homePageCode();
+      } else if (videopage) {
+        videoPageCode();
+      } else {
+        // Code for any other page matched by your @match (if any)
+        console.log("Other pages");
+      }
+    });
   });
 })();
 
@@ -83,32 +112,12 @@ function homePageCode() {
     const fetchCardSpinner = createFetchCardSpinner();
     container.append(fetchCardSpinner);
 
-    // Render cards from any parsed document (initial or fetched)
-    function renderCardsFromDocument(doc) {
-      const cards = doc.querySelectorAll(".entry-preview-wrapper");
-      if (!cards.length) {
-        console.log("No cards found.");
-        return;
-      }
-
-      cards.forEach((card) => {
-        processCard(card, grid);
-      });
-    }
-
-    // Initial render: use current page's document
-    renderCardsFromDocument(document);
+    // Add second page on intitial so content fills grid enough to become scrollable
     loadNextPage(page);
-    // loadNextPage(page, () => {
-    //   page++;
+    page++;
 
-    //   // Check if page height is still not enough for scrolling
-    //   if (document.body.scrollHeight <= window.innerHeight) {
-    //     loadNextPage(page, () => {
-    //       page++; // Now infinite scroll continues from page 3
-    //     });
-    //   }
-    // });
+    // Renders first page videos since it is already in DOM
+    renderCardsFromDom(document, grid);
 
     // Infinite scroll loading next pages
     const scrollHandler = () => {
@@ -161,7 +170,7 @@ function homePageCode() {
         console.log(`Loaded page ${page}: found ${cards.length} cards`);
 
         // Your existing function to process and render cards from that doc
-        renderCardsFromDocument(doc);
+        renderCardsFromDom(doc, grid);
 
         iframe.remove(); // clean up iframe when done
         isLoading = false;
@@ -183,33 +192,16 @@ function videoPageCode() {
   hideMain();
 
   const header = findElement("header"); // FIND header element
-  const fotorama = document.querySelector(".fotorama");
 
-  const fotoramaWrap = document.querySelector(".fotorama__wrap");
-  if (fotoramaWrap) {
-    fotoramaWrap.style.display = "flex";
-    fotoramaWrap.style.flexDirection = "column";
-    fotoramaWrap.style.alignItems = "center";
-  }
-
-  const clone = fotoramaWrap.cloneNode(true); // true = deep clone (includes children)
-
-  const fotoramaImg = clone.querySelector(".fotorama__stage");
-  fotoramaImg.style.position = "relative";
-
-  const { wrapDiv, clickOverlay, darkOverlay } = addVideoProgressOverlay();
-  // wrapDiv.style.padding = "0 20px";
-  // wrapDiv.style.position = "fixed";
-  wrapDiv.style.boxShadow = "0 12px 24px 4px rgba(0, 0, 0, 0.5)";
+  const wrapDiv = createElement("div");
+  wrapDiv.className = "wrap-div";
+  const { clickOverlay, darkOverlay } = addVideoProgressOverlay(wrapDiv);
+  wrapDiv.appendChild(darkOverlay);
+  wrapDiv.appendChild(clickOverlay);
 
   const wrapDivPadding = createElement("div");
-  wrapDivPadding.style.maxWidth = "640px";
-  wrapDivPadding.style.width = "100%";
-  wrapDivPadding.style.margin = "0 auto";
-
-  wrapDivPadding.style.padding = "0 20px";
+  wrapDivPadding.className = "wrap-div-padding";
   wrapDivPadding.appendChild(wrapDiv);
-
   header.appendChild(wrapDivPadding);
 
   const playbackControls = createPlaybackControls();
@@ -222,46 +214,15 @@ function videoPageCode() {
     console.warn("Video element not found.");
     return;
   }
-  const { loopContainer, seekSlider, updateSliderFill } =
-    addPlaybackListeners(video);
-
-  clickOverlay.addEventListener("click", (e) => {
-    const xCoord = e.offsetX; // X within the div
-    console.log("Clicked X within div:", xCoord);
-    let playbackDivWidth = clickOverlay.getBoundingClientRect().width;
-
-    console.log("xCoord is", xCoord, "and total width is", playbackDivWidth);
-    const percentage = (xCoord / playbackDivWidth) * 100;
-    console.log(percentage);
-    video.currentTime = (percentage / 100) * video.duration;
-    seekSlider.value = percentage;
-    updateSliderFill(percentage);
-  });
-
-  let currentPercent = 0;
-
-  video.addEventListener("timeupdate", () => {
-    currentPercent = (video.currentTime / video.duration) * 100;
-
-    darkOverlay.style.width = `${100 - currentPercent}%`;
-    // console.log(currentPercent);
-  });
-  const { btnStart, btnEnd, btnToggle } = createLoopControls(video);
-
-  const dividerLine = createDividerLine();
-
-  loopContainer.appendChild(btnStart);
-  loopContainer.appendChild(dividerLine);
-  loopContainer.appendChild(btnEnd);
-  loopContainer.appendChild(dividerLine.cloneNode(true));
-  loopContainer.appendChild(btnToggle);
+  const { loopContainer, seekSlider, updateSliderFill } = addPlaybackListeners(
+    video,
+    clickOverlay,
+    darkOverlay
+  );
 
   // Chapters
-
   const chapterTable = findElement("#plyr-chapter-playlist");
   if (chapterTable) {
-    chapterTable.style.paddingLeft = "20px";
-    chapterTable.style.paddingRight = "20px";
     const chapterDiv = createElement("div");
     chapterDiv.id = "chapter-div";
     chapterDiv.appendChild(chapterTable);
@@ -269,22 +230,104 @@ function videoPageCode() {
     header.appendChild(chapterDiv);
   }
 
-  const primaryMenu = findElement("#site-section-primary-menu");
-  if (primaryMenu) {
-    primaryMenu.remove();
-  }
+  removePrimaryMenu();
 
-  const rjCode = extractRJCode();
-  const dlSiteImageUrl = getDLSiteImgFromRJ(rjCode);
-  console.log("DL Site Image is", dlSiteImageUrl);
-
-  const { script } = injectColorThief();
-  script.onload = async () => {
-    console.log("ColorThief loaded", window.ColorThief);
-    await createBackgroundGradient(dlSiteImageUrl);
-    removeLoadingScreen();
-  };
+  // Get image from DL site
+  const { dlSiteImageUrl, rjCode } = getDLSiteImg();
+  injectBgGradient(dlSiteImageUrl);
 
   const { canvas } = createAudioVisualizer(video);
   header.appendChild(canvas);
+
+  const postData = {
+    title: extractVideoTitle(),
+    tags: extractVideoTags(),
+    cvs: extractVideoCVs(),
+    url: extractVideoUrl(),
+    imageUrl: dlSiteImageUrl,
+  };
+
+  async function createBookmarkButton(postId, postData) {
+    const firebase = await waitForFirebase();
+    const user = await getCurrentUser(); // waits for login state
+
+    const btn = document.createElement("button");
+    btn.style.cssText = `
+    position: fixed;
+    top: 60px;
+    right: 20px;
+    padding: 10px;
+    z-index: 9999;
+    background: gold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  `;
+
+    const uid = user.uid;
+    const db = firebase.firestore();
+    const bookmarkDocRef = db
+      .collection("users")
+      .doc(uid)
+      .collection("bookmarks")
+      .doc(postId);
+
+    let isBookmarked = (await bookmarkDocRef.get()).exists;
+    btn.textContent = isBookmarked ? "🔖 Remove Bookmark" : "🔖 Bookmark";
+
+    btn.addEventListener("click", async () => {
+      if (!user) return alert("Please log in");
+
+      if (isBookmarked) {
+        bookmarkDocRef
+          .delete()
+          .then(() => {
+            console.log("✅ Bookmark deleted");
+            btn.textContent = "🔖 Bookmark";
+            isBookmarked = false;
+          })
+          .catch((error) => {
+            console.error("❌ Error deleting bookmark:", error);
+          });
+      } else {
+        try {
+          await bookmarkDocRef.set({
+            ...postData,
+            addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+          console.log("✅ Bookmark added");
+          btn.textContent = "🔖 Remove Bookmark";
+          isBookmarked = true;
+        } catch (err) {
+          console.error("❌ Error adding bookmark:", err);
+        }
+      }
+    });
+
+    document.body.appendChild(btn);
+  }
+
+  createBookmarkButton(rjCode, postData);
+
+  showTags();
+}
+
+function waitForFirebase() {
+  return new Promise((resolve) => {
+    const interval = setInterval(() => {
+      if (typeof firebase !== "undefined") {
+        clearInterval(interval);
+        resolve(firebase);
+      }
+    }, 50);
+  });
+}
+
+function getCurrentUser() {
+  return new Promise((resolve) => {
+    const unsubscribe = firebase.auth().onAuthStateChanged((user) => {
+      unsubscribe(); // stop listening once we get the user
+      resolve(user);
+    });
+  });
 }
