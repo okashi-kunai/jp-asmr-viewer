@@ -65,14 +65,21 @@
   position: relative;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   color: #fff;
-  display: block;
-  flex-direction: column;
+
   /* height: 300px; */
   cursor: pointer;
   border-radius: 10px;
   padding-bottom: 4px;
   opacity: 0.9;
   transition: transform 0.2s ease, opacity 0.3s ease;
+
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  width: 100%;
+  max-width: 460px;
+  overflow: hidden;
 }
 
 .img-card:hover {
@@ -385,9 +392,11 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  filter: blur(40px);
   opacity: 0.7;
   transition: background 0.3s ease;
+  filter: blur(60px);
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .skeleton {
@@ -427,4 +436,39 @@
   width: 100%;
   margin: 0 auto;
   padding: 0 20px;
+}
+
+.bookmark-icon {
+  position: absolute;
+  top: 0;
+  left: calc(50% - 18px);
+  padding: 6px;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  background-color: lightblue;
+}
+
+.bookmark-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 16px;
+  background-color: lightblue;
+}
+
+.bookmark-nav-button {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  padding: 20px;
+  background-color: lightblue;
+  cursor: pointer;
+}
+
+.logo-div {
+  width: 100%;
+  height: content-fit;
+  position: relative;
 }

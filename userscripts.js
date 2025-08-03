@@ -68,10 +68,11 @@
       const homepage = url.match(homePageRegex);
       const videopage = url.match(videoPageRegex);
 
-      changeLogo();
+      const logoDiv = createLogoDiv();
+      changeLogo(logoDiv);
 
       if (homepage) {
-        homePageCode();
+        homePageCode(logoDiv);
       } else if (videopage) {
         videoPageCode();
       } else {
@@ -82,9 +83,23 @@
   });
 })();
 
-function homePageCode() {
+async function homePageCode(logoDiv) {
   removeLoadingScreen();
   addHomeGradient();
+  hideMain();
+
+  const bookmarkDataObjs = await getBookedmarkedDataObj();
+  console.log("Bookmarks are", bookmarkDataObjs);
+
+  const sortedObj = Object.fromEntries(
+    Object.entries(bookmarkDataObjs).sort(
+      ([, a], [, b]) => b.addedAt.seconds - a.addedAt.seconds
+    )
+  );
+
+  const bookmarkArr = Object.keys(bookmarkDataObjs);
+
+  const sortedBookmarkArr = Object.keys(sortedObj);
 
   const header = findElement("header"); // FIND header element
 
@@ -95,36 +110,72 @@ function homePageCode() {
   const { bannerDiv } = createScrolledBanner();
   container.parentNode.insertBefore(bannerDiv, container);
 
-  hideMain();
-  (function fetchAndFormatCards() {
-    const grid = createElement("div");
-    grid.id = "img-grid";
-    container.appendChild(grid);
+  let showBookmarks = false;
 
-    const pageNumElArr = document.querySelectorAll(".page-numbers");
-    const finalPageNum = parseInt(
-      pageNumElArr[pageNumElArr.length - 2].innerText.replace(/,/g, "")
-    );
+  const bookmarkPageButton = createBookmarkPageButton();
+  logoDiv.appendChild(bookmarkPageButton);
+
+  const grid = createElement("div");
+  grid.id = "img-grid";
+
+  // Start with cards
+  fetchAndFormatCards(grid, bookmarkArr);
+
+  bookmarkPageButton.onclick = () => {
+    if (showBookmarks) {
+      // Show cards
+      console.log("Showing cards");
+      showBookmarks = false;
+      fetchAndFormatCards(grid, bookmarkArr);
+    } else {
+      // Show bookmarks
+      console.log("Showing bookmarks");
+      showBookmarks = true;
+      eraseHTML(grid);
+      sortedBookmarkArr.map((rj) => {
+        const bookmarkData = bookmarkDataObjs[rj];
+        const img = new Image();
+        img.src = bookmarkData.imageUrl;
+        const cardInfo = {
+          title: bookmarkData.title,
+          creatorArr: bookmarkData.cvs,
+          img: img,
+          href: bookmarkData.url,
+        };
+
+        const isBookmarked = bookmarkArr.includes(rj);
+        processCard(grid, isBookmarked, cardInfo);
+      });
+      container.appendChild(grid);
+    }
+  };
+
+  function fetchAndFormatCards(grid, bookmarkArr) {
+    eraseHTML(grid);
+
+    container.appendChild(grid);
+    const fetchCardSpinner = createFetchCardSpinner();
+    container.append(fetchCardSpinner);
+
+    const lastPage = getTotalPages();
 
     let page = 2;
     let isLoading = false;
 
-    const fetchCardSpinner = createFetchCardSpinner();
-    container.append(fetchCardSpinner);
-
-    // Add second page on intitial so content fills grid enough to become scrollable
-    loadNextPage(page);
-    page++;
-
-    // Renders first page videos since it is already in DOM
-    renderCardsFromDom(document, grid);
+    (function initialRenderPage() {
+      // Add second page on intitial so content fills grid enough to become scrollable
+      loadNextPage(page);
+      page++;
+      // Renders first page videos since it is already in DOM
+      renderCardsFromDom(document, grid, bookmarkArr);
+    })();
 
     // Infinite scroll loading next pages
     const scrollHandler = () => {
       const nearBottom =
         window.innerHeight + window.scrollY >= document.body.scrollHeight - 300;
 
-      if (page > finalPageNum) {
+      if (page > lastPage) {
         window.removeEventListener("scroll", scrollHandler);
         console.log("✅ Reached final page, scroll listener removed.");
         return;
@@ -137,7 +188,6 @@ function homePageCode() {
         page++;
       }
     };
-
     window.addEventListener("scroll", scrollHandler);
 
     function loadNextPage(page) {
@@ -170,7 +220,7 @@ function homePageCode() {
         console.log(`Loaded page ${page}: found ${cards.length} cards`);
 
         // Your existing function to process and render cards from that doc
-        renderCardsFromDom(doc, grid);
+        renderCardsFromDom(doc, grid, bookmarkArr);
 
         iframe.remove(); // clean up iframe when done
         isLoading = false;
@@ -179,7 +229,7 @@ function homePageCode() {
 
       document.body.appendChild(iframe); // add iframe to DOM so it loads
     }
-  })(); // FETCHES and FORMATS cards
+  } // FETCHES and FORMATS cards
 
   const backToTopBtn = createBackToTopButton();
   document.body.appendChild(backToTopBtn);
@@ -236,7 +286,7 @@ function videoPageCode() {
   const { dlSiteImageUrl, rjCode } = getDLSiteImg();
   injectBgGradient(dlSiteImageUrl);
 
-  const { canvas } = createAudioVisualizer(video);
+  const canvas = createAudioVisualizer(video);
   header.appendChild(canvas);
 
   const postData = {
@@ -246,7 +296,6 @@ function videoPageCode() {
     url: extractVideoUrl(),
     imageUrl: dlSiteImageUrl,
   };
-
   async function createBookmarkButton(postId, postData) {
     const firebase = await waitForFirebase();
     const user = await getCurrentUser(); // waits for login state
@@ -308,8 +357,13 @@ function videoPageCode() {
   }
 
   createBookmarkButton(rjCode, postData);
+}
 
-  showTags();
+function createBookmarkPageButton() {
+  const bookmarkButton = createElement("button");
+  bookmarkButton.innerHTML = bookmarkSVG;
+  bookmarkButton.className = "bookmark-nav-button";
+  return bookmarkButton;
 }
 
 function waitForFirebase() {
