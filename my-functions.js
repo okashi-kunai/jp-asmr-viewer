@@ -181,14 +181,7 @@ function getCardInfo(card) {
   return { title, creatorArr, img, href };
 }
 function processCard(grid, isBookmarked, cardInfo) {
-  const { title, creatorArr, img, href } = cardInfo;
-
-  const gridCard = createGridCard({
-    title,
-    creatorArr,
-    img,
-    href,
-  });
+  const gridCard = createGridCard(cardInfo);
   gridCard.style.position = "relative";
 
   const bookmarkIcon = createElement("div");
@@ -198,8 +191,10 @@ function processCard(grid, isBookmarked, cardInfo) {
   const bookmarkBg = createElement("div");
   bookmarkBg.className = "bookmark-bg";
 
-  isBookmarked && gridCard.appendChild(bookmarkBg);
-  isBookmarked && gridCard.appendChild(bookmarkIcon);
+  if (isBookmarked) {
+    gridCard.appendChild(bookmarkBg);
+    gridCard.appendChild(bookmarkIcon);
+  }
 
   grid.appendChild(gridCard);
 }
@@ -433,7 +428,7 @@ function createPlaybackControls() {
   })();
 
   const playbackButtonsHTML = `
-      <div  style="display: flex; gap: 12px; align-items: center; justify-content: center; font-family: sans-serif;">
+      <div id="playback-el" style="display: flex; gap: 12px; align-items: center; justify-content: center; font-family: sans-serif;">
       <div id='playback-button' >
         ${rewind60Button}
         <h6 id="playback-button-text" >-60s</h6>
@@ -764,6 +759,7 @@ function createAudioVisualizer(video) {
   // 4. Connect video audio to analyser
   const source = audioCtx.createMediaElementSource(video);
   source.connect(analyser);
+
   analyser.connect(audioCtx.destination);
 
   // 5. Drawing loop
@@ -811,7 +807,7 @@ function createAudioVisualizer(video) {
     draw();
   });
 
-  return canvas;
+  return { canvas, audioCtx, source };
 }
 
 // Video - BG
@@ -1008,7 +1004,7 @@ async function getBookedmarkedArr() {
   }
 }
 
-async function getBookedmarkedDataObj() {
+async function getBMData(sortBy) {
   const firebase = await waitForFirebase();
   const user = await getCurrentUser(); // waits for login state
 
@@ -1025,6 +1021,12 @@ async function getBookedmarkedDataObj() {
       dataObj[doc.id] = doc.data();
     });
 
+    if (sortBy === "recent") {
+      const sortedObj = sortRecentBookmark(dataObj);
+      console.log("Sorted bookmarks by most recent");
+      return sortedObj;
+    }
+    console.log("Failed to sort bookmarks");
     return dataObj;
   } catch (error) {
     console.error("Error getting bookmarks:", error);
@@ -1043,4 +1045,71 @@ function getTotalPages() {
     elArr[elArr.length - 2].innerText.replace(/,/g, "")
   );
   return lastPage;
+}
+
+function sortRecentBookmark(obj) {
+  const sortedObj = Object.fromEntries(
+    Object.entries(obj).sort(
+      ([, a], [, b]) => b.addedAt.seconds - a.addedAt.seconds
+    )
+  );
+  return sortedObj;
+}
+
+// function setCorsHeader(video) {
+//   const sources = video.querySelectorAll("source");
+//   if (!sources.length) {
+//     console.warn("No source elements found.");
+//     return;
+//   }
+
+//   // Get first source URL (or pick the one you want)
+//   const src = sources[0].src || sources[0].getAttribute("src");
+//   if (!src) {
+//     console.warn("Source src attribute empty.");
+//     return;
+//   }
+
+//   // Remove all sources so browser doesn’t get confused
+//   sources.forEach((source) => source.remove());
+
+//   // Pause and reset
+//   video.pause();
+//   video.removeAttribute("src");
+//   video.load();
+
+//   // Set crossOrigin *before* setting src
+//   video.crossOrigin = "anonymous";
+//   video.src = src;
+//   video.load();
+// }
+
+function setCorsHeader(video) {
+  const sources = video.querySelectorAll("source");
+  if (!sources.length) {
+    console.warn("No source elements found.");
+    return;
+  }
+
+  const src = sources[0].src || sources[0].getAttribute("src");
+  if (!src) {
+    console.warn("Source src attribute empty.");
+    return;
+  }
+
+  // Set crossOrigin before loading
+  video.crossOrigin = "anonymous";
+
+  // Update the source src attribute
+  sources[0].setAttribute("src", src);
+  console.log(video);
+  // Load video
+  video.load();
+}
+
+function createBookmarkPageButton() {
+  const bookmarkButton = createElement("button");
+  bookmarkButton.innerHTML = bookmarkSVG;
+  bookmarkButton.className = "bookmark-nav-button";
+  return bookmarkButton;
 }

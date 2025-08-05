@@ -1,3 +1,46 @@
+// Block window.open
+window.open = function () {
+  console.warn("Blocked window.open()");
+  return null;
+};
+
+// Block redirect methods
+window.location.assign = function (url) {
+  console.warn("Blocked location.assign:", url);
+};
+
+window.location.replace = function (url) {
+  console.warn("Blocked location.replace:", url);
+};
+
+history.pushState = function () {
+  console.warn("Blocked history.pushState");
+};
+
+history.replaceState = function () {
+  console.warn("Blocked history.replaceState");
+};
+
+// Block links that open in new tab
+document.addEventListener(
+  "click",
+  (e) => {
+    const link = e.target.closest("a");
+    if (link && link.target === "_blank") {
+      e.preventDefault();
+      console.warn("Blocked link opening in new tab:", link.href);
+    }
+  },
+  true
+); // Use capture phase
+
+// Prevent beforeunload confirmation
+// window.addEventListener("beforeunload", (e) => {
+//   e.preventDefault();
+//   e.returnValue = "";
+//   console.warn("Blocked beforeunload prompt");
+// });
+
 (function () {
   "use strict";
   console.log("✅ Userscript injected:", window.location.href);
@@ -88,21 +131,11 @@ async function homePageCode(logoDiv) {
   addHomeGradient();
   hideMain();
 
-  const bookmarkDataObjs = await getBookedmarkedDataObj();
-  console.log("Bookmarks are", bookmarkDataObjs);
-
-  const sortedObj = Object.fromEntries(
-    Object.entries(bookmarkDataObjs).sort(
-      ([, a], [, b]) => b.addedAt.seconds - a.addedAt.seconds
-    )
-  );
-
-  const bookmarkArr = Object.keys(bookmarkDataObjs);
-
-  const sortedBookmarkArr = Object.keys(sortedObj);
+  // Get Bookmark data
+  const bmDataObj = await getBMData("recent");
+  const bmRjCodesArr = Object.keys(bmDataObj);
 
   const header = findElement("header"); // FIND header element
-
   const container = createElement("div"); // CREATE container element for grid
   container.id = "img-grid-container";
   header.appendChild(container); // APPEND container in header
@@ -113,27 +146,31 @@ async function homePageCode(logoDiv) {
   let showBookmarks = false;
 
   const bookmarkPageButton = createBookmarkPageButton();
+
   logoDiv.appendChild(bookmarkPageButton);
 
   const grid = createElement("div");
   grid.id = "img-grid";
 
   // Start with cards
-  fetchAndFormatCards(grid, bookmarkArr);
+  let scrollHandler = fetchAndFormatCards(grid, bmRjCodesArr);
 
   bookmarkPageButton.onclick = () => {
     if (showBookmarks) {
-      // Show cards
-      console.log("Showing cards");
+      // Click means don't show bookmarks so show cards
       showBookmarks = false;
-      fetchAndFormatCards(grid, bookmarkArr);
+      console.log("Showing cards");
+      scrollHandler = fetchAndFormatCards(grid, bmRjCodesArr);
+      bookmarkPageButton.style.opacity = "";
     } else {
-      // Show bookmarks
-      console.log("Showing bookmarks");
+      // Click means don't show cards so show bookmarks
       showBookmarks = true;
+      console.log("Showing bookmarks");
+      bookmarkPageButton.style.setProperty("opacity", "1", "important");
+      window.removeEventListener("scroll", scrollHandler);
       eraseHTML(grid);
-      sortedBookmarkArr.map((rj) => {
-        const bookmarkData = bookmarkDataObjs[rj];
+      bmRjCodesArr.map((rj) => {
+        const bookmarkData = bmDataObj[rj];
         const img = new Image();
         img.src = bookmarkData.imageUrl;
         const cardInfo = {
@@ -143,14 +180,14 @@ async function homePageCode(logoDiv) {
           href: bookmarkData.url,
         };
 
-        const isBookmarked = bookmarkArr.includes(rj);
+        const isBookmarked = bmRjCodesArr.includes(rj);
         processCard(grid, isBookmarked, cardInfo);
       });
       container.appendChild(grid);
     }
   };
 
-  function fetchAndFormatCards(grid, bookmarkArr) {
+  function fetchAndFormatCards(grid, bmRjCodesArr) {
     eraseHTML(grid);
 
     container.appendChild(grid);
@@ -167,7 +204,7 @@ async function homePageCode(logoDiv) {
       loadNextPage(page);
       page++;
       // Renders first page videos since it is already in DOM
-      renderCardsFromDom(document, grid, bookmarkArr);
+      renderCardsFromDom(document, grid, bmRjCodesArr);
     })();
 
     // Infinite scroll loading next pages
@@ -220,7 +257,7 @@ async function homePageCode(logoDiv) {
         console.log(`Loaded page ${page}: found ${cards.length} cards`);
 
         // Your existing function to process and render cards from that doc
-        renderCardsFromDom(doc, grid, bookmarkArr);
+        renderCardsFromDom(doc, grid, bmRjCodesArr);
 
         iframe.remove(); // clean up iframe when done
         isLoading = false;
@@ -229,6 +266,8 @@ async function homePageCode(logoDiv) {
 
       document.body.appendChild(iframe); // add iframe to DOM so it loads
     }
+
+    return scrollHandler;
   } // FETCHES and FORMATS cards
 
   const backToTopBtn = createBackToTopButton();
@@ -264,6 +303,10 @@ function videoPageCode() {
     console.warn("Video element not found.");
     return;
   }
+
+  // If element doesn't have crossorigin, set cors
+  !video.hasAttribute("crossorigin") && setCorsHeader(video);
+
   const { loopContainer, seekSlider, updateSliderFill } = addPlaybackListeners(
     video,
     clickOverlay,
@@ -286,7 +329,7 @@ function videoPageCode() {
   const { dlSiteImageUrl, rjCode } = getDLSiteImg();
   injectBgGradient(dlSiteImageUrl);
 
-  const canvas = createAudioVisualizer(video);
+  const { canvas, audioCtx, source } = createAudioVisualizer(video);
   header.appendChild(canvas);
 
   const postData = {
@@ -357,15 +400,72 @@ function videoPageCode() {
   }
 
   createBookmarkButton(rjCode, postData);
+
+  function createVolumeSlider(audioCtx, source) {
+    const gainNode = audioCtx.createGain();
+    // 4. Connect video audio to gain node
+    source.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    const volumeSlider = createElement("div");
+    volumeSlider.innerHTML = volumeSliderHTML();
+
+    header.appendChild(volumeSlider);
+
+    const slider = document.getElementById("volume-slider");
+    const volumeLevel = document.getElementById("volume-level");
+
+    gainNode.gain.value = 0;
+
+    slider.addEventListener("input", () => {
+      console.log(slider.value);
+      gainNode.gain.value = slider.value / 2;
+
+      // Optional: update the bar visually if you have one
+      volumeLevel.style.width = slider.value * 10 + "%";
+    });
+  }
+
+  createVolumeSlider(audioCtx, source);
 }
 
-function createBookmarkPageButton() {
-  const bookmarkButton = createElement("button");
-  bookmarkButton.innerHTML = bookmarkSVG;
-  bookmarkButton.className = "bookmark-nav-button";
-  return bookmarkButton;
+function volumeSliderHTML() {
+  return `
+    <div id="volume-container" style="width: 300px; margin: 20px;">
+      <input
+        id="volume-slider"
+        type="range"
+        min="0"
+        max="10"
+        value="0"
+        step="1"
+        style="width: 100%;"
+      />
+      <div
+        id="volume-bar"
+        style="
+      height: 10px;
+      background-color: lightgray;
+      margin-top: 5px;
+      border-radius: 5px;
+      position: relative;
+    "
+      >
+        <div
+          id="volume-level"
+          style="
+        height: 100%;
+        width: 0%;
+        background-color: #4caf50;
+        border-radius: 5px;
+        transition: width 0.2s ease;
+      "
+        ></div>
+      </div>
+    </div>
+  
+`;
 }
-
 function waitForFirebase() {
   return new Promise((resolve) => {
     const interval = setInterval(() => {
